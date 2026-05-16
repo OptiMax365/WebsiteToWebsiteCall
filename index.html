@@ -13,23 +13,6 @@ body {
   overflow-x:hidden;
 }
 
-body::before {
-  content:"";
-  position:fixed;
-  width:100%;
-  height:100%;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(0,255,120,0.12), transparent 40%),
-    radial-gradient(circle at 80% 70%, rgba(0,255,120,0.08), transparent 40%);
-  animation: bg 6s infinite alternate;
-  z-index:-1;
-}
-
-@keyframes bg {
-  from { transform:scale(1); opacity:0.7; }
-  to { transform:scale(1.1); opacity:1; }
-}
-
 .box {
   width:340px;
   margin:15px auto;
@@ -53,20 +36,12 @@ input, button {
 button:hover {
   transform:scale(1.05);
   cursor:pointer;
-  box-shadow:0 0 20px #00ff99;
 }
 
-#status {
-  animation: blink 1.2s infinite;
-}
+#status { animation: blink 1.2s infinite; }
 
 @keyframes blink {
   50% { opacity:0.4; }
-}
-
-#myId {
-  font-size:18px;
-  text-shadow:0 0 10px #00ff99;
 }
 
 .user {
@@ -98,7 +73,7 @@ button:hover {
 </div>
 
 <div class="box">
-  <input id="callTo" placeholder="Call Peer ID" />
+  <input id="callTo" placeholder="Peer ID" />
   <button onclick="callUser()">Call</button>
   <button onclick="endCall()">End</button>
 </div>
@@ -116,33 +91,33 @@ button:hover {
 let peer;
 let stream;
 let call;
-let username;
 let ws;
+let username;
 let loggedIn = false;
 
-/* UI */
 function setStatus(t){
   document.getElementById("status").innerText = t;
 }
 
-/* CONNECT WS */
+/* WS SINGLETON */
 function connectWS(){
+  if (ws && ws.readyState === 1) return;
+
   ws = new WebSocket(location.origin.replace("http","ws"));
 
   ws.onmessage = (msg)=>{
     const d = JSON.parse(msg.data);
 
-    if(d.type === "signup-ok"){
-      setStatus("Registered ✔");
-    }
+    if(d.type === "signup-ok") setStatus("🟡 Registered");
+    if(d.type === "signup-fail") setStatus("❌ Signup failed");
 
     if(d.type === "login-ok"){
-      setStatus("Login OK ✔");
+      setStatus("🔐 Logged in");
       startPeer(d.username);
     }
 
     if(d.type === "login-fail"){
-      setStatus("Login Failed ❌");
+      setStatus("❌ Login failed");
     }
 
     if(d.type === "user-list"){
@@ -158,14 +133,13 @@ function signup(){
   ws.onopen = ()=>{
     ws.send(JSON.stringify({
       type:"signup",
-      username: document.getElementById("name").value.trim()
+      username: document.getElementById("name").value
     }));
   };
 }
 
-/* LOGIN (ONLY VERIFIED USERS) */
+/* LOGIN */
 async function login(){
-
   connectWS();
 
   stream = await navigator.mediaDevices.getUserMedia({audio:true});
@@ -173,12 +147,12 @@ async function login(){
   ws.onopen = ()=>{
     ws.send(JSON.stringify({
       type:"login",
-      username: document.getElementById("name").value.trim()
+      username: document.getElementById("name").value
     }));
   };
 }
 
-/* START PEER ONLY AFTER LOGIN */
+/* PEER ONLY AFTER LOGIN */
 function startPeer(user){
   username = user;
 
@@ -189,7 +163,7 @@ function startPeer(user){
   document.getElementById("myId").innerText = id;
 
   peer.on("open", ()=>{
-    setStatus("Online ✔");
+    setStatus("🟢 Ready");
 
     ws.send(JSON.stringify({
       type:"register-peer",
@@ -198,30 +172,30 @@ function startPeer(user){
     }));
   });
 
-  peer.on("call", c=>{
+  peer.on("call", (c)=>{
     c.answer(stream);
     call = c;
 
-    c.on("stream", r=>{
-      document.getElementById("audio").srcObject = r;
-      setStatus("In Call");
+    c.on("stream", (remote)=>{
+      document.getElementById("audio").srcObject = remote;
+      setStatus("📞 In Call");
     });
   });
 }
 
 /* CALL */
 function callUser(){
-  const id = document.getElementById("callTo").value.trim();
+  const id = document.getElementById("callTo").value;
   if(!peer) return;
 
-  setStatus("Calling " + id);
+  setStatus("Calling...");
 
   const c = peer.call(id, stream);
   call = c;
 
-  c.on("stream", r=>{
-    document.getElementById("audio").srcObject = r;
-    setStatus("In Call");
+  c.on("stream", (remote)=>{
+    document.getElementById("audio").srcObject = remote;
+    setStatus("📞 In Call");
   });
 }
 
@@ -232,14 +206,15 @@ function endCall(){
   setStatus("Idle");
 }
 
-/* RENDER USERS */
+/* UI */
 function render(users){
   const box = document.getElementById("network");
   box.innerHTML = "";
+
   users.forEach(u=>{
     const d = document.createElement("div");
     d.className = "user";
-    d.innerText = u.username + " → " + u.peerId;
+    d.innerText = `${u.username} → ${u.peerId}`;
     box.appendChild(d);
   });
 }
