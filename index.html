@@ -1,621 +1,251 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#025f3b">
-<title>THESIGNNAL - Design Studio</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<meta charset="UTF-8" />
+<title>NEON DISCOVER VOICE</title>
+
 <style>
-* {
-  box-sizing: border-box; margin: 0; padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-  -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
-}
-input, textarea, [contenteditable="true"] { user-select: text !important; -webkit-user-select: text !important; touch-action: auto !important; }
 body {
-  background: radial-gradient(circle at center, #ffffff, #f8f9fa 70%);
-  color: #333; display: flex; flex-direction: column; height: 100vh; height: -webkit-fill-available;
-  overflow: hidden; position: fixed; width: 100vw; max-width: 100vw; overscroll-behavior: none;
+  margin:0;
+  font-family: Arial;
+  background:#020702;
+  color:#00ff99;
 }
 
-/* ========================= TOPBAR ========================= */
-.topbar {
-  position: fixed; top: env(safe-area-inset-top); left: 0; right: 0; z-index: 1000;
-  background: linear-gradient(135deg, #025f3b 0%, #037a4d 100%); box-shadow: 0 2px 12px rgba(0,0,0,0.15);
-  padding: 8px 4px; display: flex; flex-direction: column; gap: 6px; transition: transform 0.3s ease, opacity 0.3s ease;
-}
-.topbar.hidden { transform: translateY(-100%); opacity: 0; pointer-events: none; }
-
-/* ✅ FIXED: Single Row Horizontal Scroll */
-.topbar-scroll {
-  display: flex; overflow-x: auto; overflow-y: hidden;
-  -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
-  scrollbar-width: none; -ms-overflow-style: none;
-  padding: 4px 8px; gap: 8px; width: 100%; min-height: 44px;
-  touch-action: pan-x !important; scroll-behavior: smooth;
-  flex-wrap: nowrap !important; /* Force items to stay in one row */
-  white-space: nowrap; align-items: center; will-change: scroll-position;
-}
-.topbar-scroll::-webkit-scrollbar { display: none; height: 0; width: 0; }
-
-.tool-group {
-  display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: rgba(255,255,255,0.12);
-  border-radius: 12px; scroll-snap-align: start; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15); touch-action: manipulation;
-}
-.tool-group-title { font-size: 10px; color: rgba(255,255,255,0.9); font-weight: 600; margin-right: 4px; white-space: nowrap; }
-.topbar-btn {
-  padding: 8px 12px; border-radius: 10px; border: none; background: linear-gradient(135deg, #27ae60, #2ecc71);
-  color: white; font-size: 12px; font-weight: 600; cursor: pointer; min-height: 36px; min-width: 36px;
-  white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.15s ease; touch-action: manipulation;
-}
-.topbar-btn:active { transform: scale(0.96); background: linear-gradient(135deg, #219653, #27ae60); }
-.color-btn {
-  width: 36px !important; height: 36px !important; border-radius: 10px !important; border: 2px solid rgba(255,255,255,0.4) !important;
-  padding: 0 !important; background: linear-gradient(135deg, #667eea, #764ba2) !important; position: relative !important;
-  overflow: hidden !important; flex-shrink: 0 !important; cursor: pointer !important; touch-action: manipulation;
-}
-.color-btn input[type="color"] { position: absolute; width: 200%; height: 200%; opacity: 0; cursor: pointer; top: -50%; left: -50%; margin: 0; }
-.color-btn::after { content: "🎨"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 14px; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.4); pointer-events: none; }
-.dropdown-wrapper { position: relative; min-width: 90px; touch-action: manipulation; }
-.dropdown-trigger {
-  background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; padding: 8px 24px 8px 10px; border-radius: 10px;
-  font-size: 11px; font-weight: 600; cursor: pointer; min-height: 36px; display: flex; align-items: center; justify-content: space-between; white-space: nowrap; position: relative; touch-action: manipulation;
-}
-.dropdown-trigger::after { content: "▼"; position: absolute; right: 8px; font-size: 9px; }
-.dropdown-menu {
-  position: absolute; top: 100%; left: 0; background: #025f3b; border-radius: 10px; margin-top: 6px; z-index: 99999;
-  max-height: 180px; overflow-y: auto; -webkit-overflow-scrolling: touch; display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.35); min-width: 130px; border: 1px solid rgba(255,255,255,0.2); touch-action: auto;
-}
-.dropdown-menu.active { display: block; }
-.dropdown-menu div { padding: 9px 14px; cursor: pointer; color: white; font-size: 12px; white-space: nowrap; transition: background 0.15s; }
-.dropdown-menu div:active, .dropdown-menu div:hover { background: rgba(255,255,255,0.15); color: #fff; }
-.size-input-group { display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: rgba(255,255,255,0.12); border-radius: 10px; flex-shrink: 0; touch-action: manipulation; }
-.size-input-group label { font-size: 10px; color: rgba(255,255,255,0.95); font-weight: 600; }
-.size-input-group input { width: 46px; padding: 5px 4px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); font-size: 11px; height: 28px; text-align: center; background: rgba(255,255,255,0.15); color: white; font-weight: 500; touch-action: auto; }
-.size-input-group input:focus { outline: none; border-color: #00ff6a; background: rgba(255,255,255,0.25); }
-.zoom-group { display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: rgba(255,255,255,0.12); border-radius: 10px; flex-shrink: 0; touch-action: manipulation; }
-.zoom-display { font-size: 11px; color: rgba(255,255,255,0.95); min-width: 42px; text-align: center; font-weight: 600; }
-.scroll-hint { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 50px; height: 3px; background: rgba(255,255,255,0.6); border-radius: 2px; animation: pulse 2s infinite; pointer-events: none; display: none; }
-@keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-
-/* ========================= WORKSPACE & CANVAS ========================= */
-.workspace { display: flex; flex: 1; overflow: hidden; position: relative; margin-top: calc(60px + env(safe-area-inset-top)); width: 100%; background: #f0f2f5; }
-.canvas-container {
-  flex: 1; position: relative; overflow: hidden; background: #f0f2f5; display: flex; align-items: center;
-  justify-content: center; touch-action: none; cursor: grab;
-}
-.canvas-container.panning { cursor: grabbing; }
-.canvas-wrapper {
-  position: relative; background: white; box-shadow: 0 4px 30px rgba(0,0,0,0.12), 0 1px 8px rgba(0,0,0,0.08);
-  border-radius: 8px; overflow: visible; touch-action: none; will-change: transform; transition: transform 0.1s ease-out;
-}
-.canvas-wrapper.dragging { transition: none !important; }
-canvas { display: block; touch-action: none; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
-.canvas-handle {
-  position: absolute; top: -40px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #00d67a, #00b366);
-  color: #0a1a12; padding: 7px 22px; border-radius: 24px; font-size: 12px; font-weight: 700; cursor: grab;
-  box-shadow: 0 4px 16px rgba(0,214,122,0.4), 0 2px 8px rgba(0,0,0,0.15); z-index: 15; white-space: nowrap; user-select: none;
-  display: flex; align-items: center; gap: 6px; touch-action: none;
-}
-.canvas-handle::before { content: "⋮"; font-size: 14px; letter-spacing: 1px; }
-.canvas-handle:active { cursor: grabbing; background: linear-gradient(135deg, #00b366, #009955); }
-#grid-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; opacity: 0.25; display: none; }
-.statusbar {
-  position: fixed; bottom: env(safe-area-inset-bottom); left: 0; right: 0; padding: 6px 14px; border-top: 1px solid rgba(0,0,0,0.08);
-  display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: linear-gradient(135deg, #025f3b, #037a4d);
-  color: rgba(255,255,255,0.95); z-index: 1000; transition: transform 0.3s ease, opacity 0.3s ease; min-height: 34px;
-}
-.statusbar.hidden { transform: translateY(100%); opacity: 0; pointer-events: none; }
-
-/* ========================= SIDEBAR ========================= */
-.sidebar {
-  position: fixed; top: calc(60px + env(safe-area-inset-top)); left: 0;
-  width: 280px; height: calc(100vh - 60px - env(safe-area-inset-top) - 34px - env(safe-area-inset-bottom));
-  background: linear-gradient(135deg, #025f3b, #037a4d); color: white; z-index: 900; overflow-y: auto;
-  -webkit-overflow-scrolling: touch; padding: 16px 0; transition: transform 0.3s ease, opacity 0.3s ease;
-  box-shadow: 2px 0 20px rgba(0,0,0,0.1);
-}
-.sidebar.hidden { transform: translateX(-100%); opacity: 0; pointer-events: none; }
-.workspace.expanded { margin-left: 0; }
-.sidebar h3 { margin: 16px 0 10px; padding: 0 20px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.95); }
-.sidebar-btn {
-  width: calc(100% - 40px); margin: 6px 20px; padding: 11px 14px; border-radius: 10px; border: none;
-  background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; font-weight: 600; cursor: pointer;
-  font-size: 13px; min-height: 42px; transition: all 0.15s ease;
-}
-.sidebar-btn:active { transform: scale(0.98); background: linear-gradient(135deg, #219653, #27ae60); }
-.color-row { display: flex; align-items: center; gap: 12px; padding: 8px 20px; margin: 4px 0; }
-.color-row label { color: rgba(255,255,255,0.9); font-size: 12px; min-width: 80px; }
-.sidebar-color-btn { width: 40px; height: 40px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.4); cursor: pointer; padding: 0; background: linear-gradient(135deg, #667eea, #764ba2); position: relative; overflow: hidden; flex-shrink: 0; }
-.sidebar-color-btn input[type="color"] { position: absolute; width: 200%; height: 200%; opacity: 0; cursor: pointer; top: -50%; left: -50%; margin: 0; }
-.sidebar-color-btn::after { content: "🎨"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 18px; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.4); pointer-events: none; }
-.color-divider { height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); margin: 14px 20px; }
-.apply-btn {
-  padding: 7px 16px; background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; border: none;
-  border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 11px; min-height: 32px; flex-shrink: 0;
-}
-.apply-btn:active { transform: scale(0.97); }
-.desktop-only { display: flex !important; }
-.mobile-only { display: none !important; }
-
-/* ========================= GREEN SWITCH ========================= */
-#masterSwitch {
-  width: 54px; height: 54px; background: radial-gradient(circle, #00ff88, #00cc66); border: 3px solid rgba(255,255,255,0.4);
-  border-radius: 50%; position: fixed; bottom: calc(48px + env(safe-area-inset-bottom)); right: 24px; cursor: pointer;
-  z-index: 999999; box-shadow: 0 6px 24px rgba(0,204,102,0.5), 0 3px 12px rgba(0,0,0,0.2), inset 0 0 20px rgba(255,255,255,0.25);
-  transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; user-select: none; touch-action: manipulation;
-}
-#masterSwitch:active { transform: scale(0.94); }
-#masterSwitch svg { width: 24px; height: 24px; fill: #0a1a12; pointer-events: none; }
-
-/* ========================= FABRIC & MISC ========================= */
-.fabric-object--selected { stroke-width: 3px !important; stroke: #00d67a !important; strokeDashArray: none !important; }
-.canvas-wrapper.fabric-editing { pointer-events: none; }
-.canvas-wrapper.fabric-editing canvas { pointer-events: auto; }
-
-/* ========================= RESPONSIVE ========================= */
-@media (max-width: 767px) {
-  .sidebar { display: none !important; }
-  .workspace { margin-left: 0 !important; }
-  .topbar-scroll { padding: 4px 6px; }
-  .tool-group { padding: 5px 8px; gap: 5px; }
-  .topbar-btn { padding: 7px 10px; font-size: 11px; min-height: 34px; }
-  .color-btn { width: 34px !important; height: 34px !important; }
-  .size-input-group input { width: 42px; font-size: 10px; height: 26px; }
-  .zoom-display { font-size: 10px; min-width: 38px; }
-  .scroll-hint { display: block; }
-  #masterSwitch { right: 16px; bottom: calc(42px + env(safe-area-inset-bottom)); width: 50px; height: 50px; }
-}
-@media (min-width: 768px) { .workspace { margin-left: 280px; } }
-
-/* ✅ DESKTOP FIX: Start from Left */
-@media (min-width: 1024px) {
-  .topbar-scroll {
-    justify-content: flex-start !important; /* Ensures it starts at the left, not center */
-  }
-  .tool-group { padding: 5px 9px !important; flex-shrink: 0 !important; }
-  .topbar-btn { padding: 6px 10px !important; font-size: 11px !important; min-height: 34px !important; }
-  .size-input-group { padding: 3px 6px !important; }
-  .size-input-group input { width: 42px !important; height: 26px !important; }
+/* glowing background */
+body::before {
+  content:"";
+  position:fixed;
+  width:100%;
+  height:100%;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(0,255,120,0.12), transparent 40%),
+    radial-gradient(circle at 70% 70%, rgba(0,255,120,0.08), transparent 40%);
+  animation: bg 5s infinite alternate;
+  z-index:-1;
 }
 
-@media (hover: none) and (pointer: coarse) {
-  .topbar-btn, .dropdown-trigger, .color-btn, .sidebar-btn, .apply-btn, .sidebar-color-btn { min-height: 44px !important; min-width: 44px !important; }
-  .size-input-group input { min-height: 36px; font-size: 13px; }
-  .dropdown-trigger { padding: 8px 28px 8px 14px; font-size: 13px; }
+@keyframes bg {
+  from { transform:scale(1); opacity:0.7; }
+  to { transform:scale(1.1); opacity:1; }
+}
+
+h2 {
+  text-align:center;
+  text-shadow:0 0 12px #00ff99;
+}
+
+.box {
+  width:360px;
+  margin:15px auto;
+  padding:15px;
+  border:1px solid #00ff99;
+  border-radius:12px;
+  background:rgba(0,0,0,0.75);
+  box-shadow:0 0 15px #00ff99;
+  animation: float 4s infinite ease-in-out;
+}
+
+@keyframes float {
+  0%,100% { transform:translateY(0); }
+  50% { transform:translateY(-6px); }
+}
+
+input, button {
+  padding:10px;
+  margin:5px;
+  border-radius:8px;
+  border:none;
+  background:#001a10;
+  color:#00ff99;
+  box-shadow:0 0 10px #00ff99;
+}
+
+button:hover {
+  transform:scale(1.05);
+  cursor:pointer;
+  box-shadow:0 0 20px #00ff99;
+}
+
+#status {
+  animation: blink 1.2s infinite;
+}
+
+@keyframes blink {
+  50% { opacity:0.4; }
+}
+
+/* DISCOVER USERS */
+.user {
+  padding:10px;
+  margin:5px;
+  border-radius:8px;
+  border:1px solid #00ff99;
+  cursor:pointer;
+  animation: pulse 1.5s infinite;
+  transition:0.2s;
+}
+
+.user:hover {
+  background:#003322;
+  transform:scale(1.05);
+}
+
+@keyframes pulse {
+  0% { box-shadow:0 0 5px #00ff99; }
+  50% { box-shadow:0 0 18px #00ff99; }
+  100% { box-shadow:0 0 5px #00ff99; }
+}
+
+.onlineDot {
+  width:8px;
+  height:8px;
+  background:#00ff99;
+  border-radius:50%;
+  display:inline-block;
+  margin-right:6px;
+  animation: blinkDot 1s infinite;
+}
+
+@keyframes blinkDot {
+  50% { opacity:0.2; }
 }
 </style>
 </head>
+
 <body>
 
-<!-- TOPBAR -->
-<div class="topbar" id="topbar">
-  <div class="topbar-scroll" id="topbarScroll">
-    <div class="tool-group">
-      <span class="tool-group-title">Add</span>
-      <button class="topbar-btn" onclick="addText()">️ Text</button>
-      <button class="topbar-btn" onclick="addRectangle()"> Rect</button>
-      <button class="topbar-btn" onclick="addCircle()">◯ Circle</button>
-      <button class="topbar-btn" onclick="addTriangle()">△ Triangle</button>
-      <button class="topbar-btn" onclick="triggerImageUpload()">🖼️ Image</button>
-    </div>
-    <div class="tool-group">
-      <span class="tool-group-title">Canvas</span>
-      <button class="topbar-btn" onclick="toggleDragMode()">🖐️ Pan</button>
-      <button class="topbar-btn" onclick="deleteSelected()">🗑️ Del</button>
-      <button class="topbar-btn" onclick="bringForward()">⬆️ Up</button>
-      <button class="topbar-btn" onclick="sendBackward()">⬇️ Down</button>
-      <button class="topbar-btn" onclick="alignCenter()">⊙ Center</button>
-      <button class="topbar-btn" onclick="toggleGrid()"># Grid</button>
-    </div>
-    <div class="tool-group size-input-group">
-      <span class="tool-group-title">Size</span>
-      <label>W:</label>
-      <input type="number" id="canvasWidth" value="1080" min="100" max="4000" onchange="resizeCanvas()">
-      <label>H:</label>
-      <input type="number" id="canvasHeight" value="1920" min="100" max="4000" onchange="resizeCanvas()">
-      <button class="topbar-btn" style="padding:6px 10px;font-size:10px;" onclick="resizeCanvas()">Apply</button>
-    </div>
-    <div class="tool-group">
-      <span class="tool-group-title">BG</span>
-      <div class="color-btn" title="Workspace Background"><input type="color" id="mainBgColor" value="#f0f2f5" onchange="applyMainBg()"></div>
-      <div class="color-btn" title="Canvas Background"><input type="color" id="canvasBgColor" value="#ffffff" onchange="applyCanvasBg()"></div>
-    </div>
-    <div class="tool-group">
-      <span class="tool-group-title">Text</span>
-      <div class="dropdown-wrapper">
-        <div class="dropdown-trigger" onclick="toggleDropdown('fontDropdown')">Arial</div>
-        <div class="dropdown-menu" id="fontDropdown">
-          <div onclick="setFont('Arial')">Arial</div><div onclick="setFont('Helvetica')">Helvetica</div>
-          <div onclick="setFont('Times New Roman')">Times New Roman</div><div onclick="setFont('Georgia')">Georgia</div>
-          <div onclick="setFont('Courier New')">Courier New</div><div onclick="setFont('Impact')">Impact</div>
-          <div onclick="setFont('Verdana')">Verdana</div><div onclick="setFont('Tahoma')">Tahoma</div>
-          <div onclick="setFont('Trebuchet MS')">Trebuchet MS</div><div onclick="setFont('Comic Sans MS')">Comic Sans MS</div>
-        </div>
-      </div>
-      <input type="number" id="fontSize" value="48" min="8" max="300" onchange="changeFontSize()" style="width:46px;height:28px;font-size:11px;text-align:center;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.15);color:white;">
-      <div class="color-btn" title="Text Color"><input type="color" id="textColor" value="#000000" onchange="applyTextColor()"></div>
-    </div>
-    <div class="tool-group">
-      <span class="tool-group-title">Style</span>
-      <div class="color-btn" title="Fill Color"><input type="color" id="shapeFill" value="#4CAF50" onchange="applyShapeStyle()"></div>
-      <div class="color-btn" title="Border Color"><input type="color" id="shapeStroke" value="#000000" onchange="applyShapeStyle()"></div>
-      <div class="color-btn" title="Selection Border"><input type="color" id="selectionColor" value="#00d67a" onchange="applySelectionStyle()"></div>
-    </div>
-    <div class="tool-group zoom-group">
-      <span class="tool-group-title">View</span>
-      <button class="topbar-btn" style="padding:6px 10px;font-size:14px;font-weight:bold;" onclick="zoomOut()">−</button>
-      <span class="zoom-display" id="zoomDisplay">100%</span>
-      <button class="topbar-btn" style="padding:6px 10px;font-size:14px;font-weight:bold;" onclick="zoomIn()">+</button>
-      <button class="topbar-btn" style="padding:6px 8px;font-size:10px;" onclick="resetZoom()">↺</button>
-      <button class="topbar-btn" style="padding:6px 10px;font-size:11px;" onclick="downloadPNG()">💾 Export</button>
-    </div>
-    <div class="tool-group desktop-only"><button class="topbar-btn" onclick="toggleSidebar()">☰ Panel</button></div>
-  </div>
-  <div class="scroll-hint"></div>
+<h2>⚡ NEON DISCOVER NETWORK</h2>
+
+<div class="box">
+  Status: <span id="status">Offline</span>
 </div>
 
-<!-- WORKSPACE -->
-<div class="workspace" id="workspace">
-  <div class="sidebar" id="sidebar">
-    <h3>🎨 Backgrounds</h3>
-    <div class="color-row"><label>Workspace</label><div class="sidebar-color-btn"><input type="color" id="sidebarMainBg" value="#f0f2f5" onchange="applyMainBg()"></div><button class="apply-btn" onclick="applyMainBg()">Apply</button></div>
-    <div class="color-row"><label>Canvas</label><div class="sidebar-color-btn"><input type="color" id="sidebarCanvasBg" value="#ffffff" onchange="applyCanvasBg()"></div><button class="apply-btn" onclick="applyCanvasBg()">Apply</button></div>
-    <div class="color-divider"></div>
-    <h3>✏️ Text Settings</h3>
-    <div class="color-row"><label>Color</label><div class="sidebar-color-btn"><input type="color" id="sidebarTextColor" value="#000000" onchange="applyTextColor()"></div><button class="apply-btn" onclick="applyTextColor()">Apply</button></div>
-    <div class="color-row"><label>Font Size</label><input type="number" id="sidebarFontSize" value="48" min="8" max="300" onchange="changeFontSize()" style="width:60px;padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.15);color:white;text-align:center;"></div>
-    <div class="color-divider"></div>
-    <h3>🎨 Shape Style</h3>
-    <div class="color-row"><label>Fill</label><div class="sidebar-color-btn"><input type="color" id="sidebarShapeFill" value="#4CAF50" onchange="applyShapeStyle()"></div><button class="apply-btn" onclick="applyShapeStyle()">Apply</button></div>
-    <div class="color-row"><label>Border</label><div class="sidebar-color-btn"><input type="color" id="sidebarShapeStroke" value="#000000" onchange="applyShapeStyle()"></div><button class="apply-btn" onclick="applyShapeStyle()">Apply</button></div>
-    <div class="color-divider"></div>
-    <h3>⚡ Quick Actions</h3>
-    <button class="sidebar-btn" onclick="addText()">Add Text</button>
-    <button class="sidebar-btn" onclick="addRectangle()">Add Rectangle</button>
-    <button class="sidebar-btn" onclick="addCircle()">Add Circle</button>
-    <button class="sidebar-btn" onclick="triggerImageUpload()">Upload Image</button>
-    <button class="sidebar-btn" onclick="toggleGrid()">Toggle Grid</button>
-    <button class="sidebar-btn" onclick="alignCenter()">Center Object</button>
-    <button class="sidebar-btn" onclick="downloadPNG()">Export as PNG</button>
-    <div class="color-divider"></div>
-    <h3>ℹ️ Canvas Info</h3>
-    <div style="padding:0 20px;font-size:12px;line-height:1.8;color:rgba(255,255,255,0.9);">
-      Size: <span id="info-size" style="color:#00ff88;">1080 × 1920</span><br>
-      Zoom: <span id="info-zoom" style="color:#00ff88;">100%</span><br>
-      Objects: <span id="info-objects" style="color:#00ff88;">0</span><br>
-      Selected: <span id="info-selected" style="color:#ff6b9d;">None</span>
-    </div>
-  </div>
-  <div class="canvas-container" id="canvasContainer">
-    <div class="canvas-wrapper" id="canvasWrapper">
-      <div class="canvas-handle" id="canvasHandle">DRAG CANVAS</div>
-      <canvas id="designCanvas"></canvas>
-    </div>
-    <canvas id="grid-overlay"></canvas>
-  </div>
+<div class="box">
+  <input id="name" placeholder="Enter username (This, etc)" />
+  <br/>
+  <button onclick="goOnline()">Go Online</button>
 </div>
 
-<!-- STATUS BAR & SWITCH -->
-<div class="statusbar" id="statusbar">
-  <span id="selectedInfo">No object selected</span>
-  <span id="canvasInfo">1080 × 1920 • 100%</span>
-  <span id="modeInfo">Select Mode</span>
+<div class="box">
+  Your Username:
+  <div id="myName">---</div>
 </div>
-<div id="masterSwitch" title="Toggle UI Panels">
-  <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+
+<div class="box">
+  <b>🌐 DISCOVER (Live Online Users)</b>
+  <div id="discover"></div>
 </div>
-<input type="file" id="imageInput" accept="image/*" style="display:none">
+
+<audio id="audio" autoplay></audio>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
 <script>
-let CW = 1080, CH = 1920;
-let zoomLevel = 1;
-let dragMode = false;
-let gridVisible = false;
-let isUIVisible = true;
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 767;
+let peer;
+let stream;
+let currentCall;
+let myName;
 
-let defaultTextColor = '#000000';
-let defaultShapeFill = '#4CAF50';
-let defaultShapeStroke = '#000000';
-let defaultSelectionColor = '#00d67a';
-let panOffset = { x: 0, y: 0 };
+let onlineUsers = {}; // live map
 
-const canvasWrapper = document.getElementById('canvasWrapper');
-const canvasContainer = document.getElementById('canvasContainer');
-const canvasHandle = document.getElementById('canvasHandle');
-const masterSwitch = document.getElementById('masterSwitch');
-const sidebar = document.getElementById('sidebar');
-const topbar = document.getElementById('topbar');
-const statusbar = document.getElementById('statusbar');
-const workspace = document.getElementById('workspace');
-const gridOverlay = document.getElementById('grid-overlay');
-const imageInput = document.getElementById('imageInput');
-const topbarScroll = document.getElementById('topbarScroll');
-
-const canvas = new fabric.Canvas('designCanvas', {
-  width: CW, height: CH, backgroundColor: '#ffffff', preserveObjectStacking: true, enableRetinaScaling: true,
-  skipOffscreen: true, selection: true, borderColor: defaultSelectionColor, borderScaleFactor: 3,
-  cornerColor: defaultSelectionColor, cornerStrokeColor: '#ffffff', cornerSize: isMobile ? 18 : 14,
-  transparentCorners: false, centeredScaling: true, uniformScaling: true, stopContextMenu: true,
-  hoverCursor: 'move', moveCursor: 'grab', defaultCursor: 'default', renderOnAddRemove: true, skipTargetFind: false, interactive: true
-});
-
-function syncColorInputs(topbarId, sidebarId, value) {
-  const t = document.getElementById(topbarId), s = document.getElementById(sidebarId);
-  if (t && t.value !== value) t.value = value;
-  if (s && s.value !== value) s.value = value;
+function setStatus(t){
+  document.getElementById("status").innerText = t;
 }
 
-function applyMainBg() {
-  const c = document.getElementById('mainBgColor')?.value || '#f0f2f5';
-  syncColorInputs('mainBgColor', 'sidebarMainBg', c);
-  canvasContainer.style.background = c;
-}
-function applyCanvasBg() {
-  const c = document.getElementById('canvasBgColor')?.value || '#ffffff';
-  syncColorInputs('canvasBgColor', 'sidebarCanvasBg', c);
-  canvas.setBackgroundColor(c, canvas.renderAll.bind(canvas));
-}
-function applyTextColor() {
-  const c = document.getElementById('textColor')?.value || defaultTextColor;
-  syncColorInputs('textColor', 'sidebarTextColor', c);
-  defaultTextColor = c;
-  canvas.getActiveObjects().forEach(obj => { if (['i-text', 'text', 'textbox'].includes(obj.type)) obj.set('fill', c); });
-  canvas.requestRenderAll(); updateObjectInfo();
-}
-function applyShapeStyle() {
-  const fill = document.getElementById('shapeFill')?.value || defaultShapeFill;
-  const stroke = document.getElementById('shapeStroke')?.value || defaultShapeStroke;
-  syncColorInputs('shapeFill', 'sidebarShapeFill', fill);
-  syncColorInputs('shapeStroke', 'sidebarShapeStroke', stroke);
-  defaultShapeFill = fill; defaultShapeStroke = stroke;
-  canvas.getActiveObjects().forEach(obj => { if (!['i-text', 'text', 'textbox', 'image', 'group'].includes(obj.type)) obj.set({ fill, stroke, strokeWidth: 2 }); });
-  canvas.requestRenderAll(); updateObjectInfo();
-}
-function applySelectionStyle() {
-  const c = document.getElementById('selectionColor')?.value || defaultSelectionColor;
-  defaultSelectionColor = c;
-  canvas.forEachObject(obj => obj.set({ borderColor: c, cornerColor: c, cornerStrokeColor: '#fff' }));
-  canvas.set({ borderColor: c, cornerColor: c, cornerStrokeColor: '#fff' });
-  canvas.renderAll();
-}
-function changeFontSize() {
-  const s = parseInt(document.getElementById('fontSize')?.value || '48') || 48;
-  const sb = document.getElementById('sidebarFontSize');
-  if (document.getElementById('fontSize')) document.getElementById('fontSize').value = s;
-  if (sb) sb.value = s;
-  canvas.getActiveObjects().forEach(obj => { if (['i-text', 'text', 'textbox'].includes(obj.type)) obj.set('fontSize', s); });
-  canvas.requestRenderAll(); updateObjectInfo();
-}
-function setFont(font) {
-  document.querySelectorAll('.dropdown-trigger').forEach(el => el.innerHTML = font + ' <span style="margin-left:auto">▼</span>');
-  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('active'));
-  canvas.getActiveObjects().forEach(obj => { if (['i-text', 'text', 'textbox'].includes(obj.type)) obj.set('fontFamily', font); });
-  canvas.renderAll(); updateObjectInfo();
-}
-function toggleDropdown(id) {
-  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('active'));
-  const menu = document.getElementById(id); if (menu) menu.classList.toggle('active');
-}
-document.addEventListener('click', e => { if (!e.target.closest('.dropdown-wrapper')) document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('active')); });
+/* ---------------- START ---------------- */
 
-function getWorkspaceCenter() { return { x: CW / 2, y: CH / 2 }; }
-function addText() {
-  const font = document.querySelector('.dropdown-trigger')?.innerText.replace(' ▼', '').trim() || 'Arial';
-  const size = parseInt(document.getElementById('fontSize')?.value || '48') || 48;
-  const { x, y } = getWorkspaceCenter();
-  const text = new fabric.IText('Double-tap to edit', { left: x, top: y, fontSize: size, fontFamily: font, fill: defaultTextColor, originX: 'center', originY: 'center', cornerSize: isMobile ? 18 : 14, selectable: !dragMode, evented: !dragMode, objectCaching: true });
-  canvas.add(text); canvas.setActiveObject(text); canvas.requestRenderAll(); updateObjectInfo();
-}
-function addRectangle() {
-  const { x, y } = getWorkspaceCenter();
-  const rect = new fabric.Rect({ left: x, top: y, width: 200, height: 120, fill: defaultShapeFill, stroke: defaultShapeStroke, strokeWidth: 2, originX: 'center', originY: 'center', cornerSize: isMobile ? 18 : 14, selectable: !dragMode, evented: !dragMode, objectCaching: true });
-  canvas.add(rect); canvas.setActiveObject(rect); canvas.requestRenderAll(); updateObjectInfo();
-}
-function addCircle() {
-  const { x, y } = getWorkspaceCenter();
-  const circle = new fabric.Circle({ left: x, top: y, radius: 70, fill: defaultShapeFill, stroke: defaultShapeStroke, strokeWidth: 2, originX: 'center', originY: 'center', cornerSize: isMobile ? 18 : 14, selectable: !dragMode, evented: !dragMode, objectCaching: true });
-  canvas.add(circle); canvas.setActiveObject(circle); canvas.requestRenderAll(); updateObjectInfo();
-}
-function addTriangle() {
-  const { x, y } = getWorkspaceCenter();
-  const tri = new fabric.Triangle({ left: x, top: y, width: 140, height: 140, fill: defaultShapeFill, stroke: defaultShapeStroke, strokeWidth: 2, originX: 'center', originY: 'center', cornerSize: isMobile ? 18 : 14, selectable: !dragMode, evented: !dragMode, objectCaching: true });
-  canvas.add(tri); canvas.setActiveObject(tri); canvas.requestRenderAll(); updateObjectInfo();
-}
-function triggerImageUpload() { imageInput.click(); }
-imageInput.addEventListener('change', function(e) {
-  const file = e.target.files[0];
-  if (!file || !file.type.match('image.*')) { alert('Please select a valid image file'); this.value = ''; return; }
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    fabric.Image.fromURL(ev.target.result, function(img) {
-      const maxW = CW * 0.7, maxH = CH * 0.7;
-      const scale = Math.min(maxW / img.width, maxH / img.height, 1);
-      const { x, y } = getWorkspaceCenter();
-      img.set({ left: x, top: y, originX: 'center', originY: 'center', scaleX: scale, scaleY: scale, cornerSize: isMobile ? 18 : 14, borderColor: defaultSelectionColor, cornerColor: defaultSelectionColor, cornerStrokeColor: '#fff', selectable: !dragMode, evented: !dragMode, objectCaching: true });
-      canvas.add(img); canvas.setActiveObject(img); canvas.requestRenderAll(); updateObjectInfo(); imageInput.value = '';
-    }, { crossOrigin: 'anonymous' });
-  };
-  reader.readAsDataURL(file);
-});
+async function goOnline(){
 
-function deleteSelected() { const a = canvas.getActiveObjects(); if (a.length) { a.forEach(o => canvas.remove(o)); canvas.discardActiveObject(); canvas.requestRenderAll(); updateObjectInfo(); } }
-function bringForward() { const o = canvas.getActiveObject(); if (o) { canvas.bringForward(o); canvas.requestRenderAll(); } }
-function sendBackward() { const o = canvas.getActiveObject(); if (o) { canvas.sendBackwards(o); canvas.requestRenderAll(); } }
-function alignCenter() { const o = canvas.getActiveObject(); if (o) { o.center(); o.setCoords(); canvas.requestRenderAll(); } }
-function downloadPNG() {
-  const wasVisible = gridVisible; if (wasVisible) gridOverlay.style.display = 'none';
-  const dataURL = canvas.toDataURL({ format: 'png', quality: 1, multiplier: isMobile ? 1 : 2 });
-  const a = document.createElement('a'); a.href = dataURL; a.download = 'design-export.png';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  if (wasVisible) gridOverlay.style.display = 'block';
+  myName = (document.getElementById("name").value || "This")
+    .replace(/[^a-zA-Z]/g,"")
+    .toLowerCase();
+
+  document.getElementById("myName").innerText = myName;
+
+  stream = await navigator.mediaDevices.getUserMedia({audio:true});
+
+  peer = new Peer(myName + "_" + Math.random().toString(36).substr(2,4));
+
+  peer.on("open", ()=>{
+    setStatus("Online - Discover Active");
+    broadcastPresence();
+  });
+
+  /* incoming calls */
+  peer.on("call", call=>{
+    setStatus("Incoming Call...");
+    call.answer(stream);
+    currentCall = call;
+
+    call.on("stream", remote=>{
+      document.getElementById("audio").srcObject = remote;
+      setStatus("In Call");
+    });
+  });
+
+  /* presence connections */
+  peer.on("connection", conn=>{
+    conn.on("data", data=>{
+      if(data.type === "presence"){
+        onlineUsers[data.name] = data.peer;
+        renderDiscover();
+      }
+    });
+  });
+
+  setInterval(broadcastPresence, 3000);
 }
 
-function toggleDragMode() {
-  dragMode = !dragMode;
-  document.getElementById('modeInfo').textContent = dragMode ? 'Pan Mode' : 'Select Mode';
-  canvas.selection = !dragMode;
-  canvas.forEachObject(obj => { obj.selectable = !dragMode; obj.evented = !dragMode; });
-  canvas.discardActiveObject(); canvas.requestRenderAll(); updateObjectInfo();
-}
+/* ---------------- DISCOVER SYSTEM ---------------- */
 
-let panState = { active: false, lastX: 0, lastY: 0, startPanX: 0, startPanY: 0 };
-function startPan(e) {
-  if (e.target.closest('.canvas-handle, input, button, .dropdown, .topbar-btn, .sidebar, .statusbar, #masterSwitch')) return;
-  e.preventDefault(); e.stopPropagation();
-  const cx = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-  const cy = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-  const pointer = canvas.getPointer(e);
-  const target = canvas.findTarget(e);
-  if (dragMode || !target || !target.selectable) {
-    panState.active = true; panState.lastX = cx; panState.lastY = cy; panState.startPanX = panOffset.x; panState.startPanY = panOffset.y;
-    canvasContainer.classList.add('panning'); canvasWrapper.classList.add('dragging'); canvasWrapper.style.transition = 'none';
+function broadcastPresence(){
+  if(!peer) return;
+
+  for(let id in peer.connections){
+    let connList = peer.connections[id];
+    connList.forEach(conn=>{
+      conn.send({
+        type:"presence",
+        name: myName,
+        peer: peer.id
+      });
+    });
   }
 }
-function onPan(e) {
-  if (!panState.active) return; e.preventDefault();
-  const cx = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-  const cy = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-  panOffset.x = panState.startPanX + (cx - panState.lastX);
-  panOffset.y = panState.startPanY + (cy - panState.lastY);
-  applyCanvasTransform();
-}
-function endPan() { if (panState.active) { panState.active = false; canvasContainer.classList.remove('panning'); canvasWrapper.classList.remove('dragging'); canvasWrapper.style.transition = ''; } }
 
-function setupCanvasHandle() {
-  let hds = { active: false, lastX: 0, lastY: 0, startPanX: 0, startPanY: 0 };
-  function start(e) { e.preventDefault(); e.stopPropagation(); const cx = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX; const cy = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY; hds.active = true; hds.lastX = cx; hds.lastY = cy; hds.startPanX = panOffset.x; hds.startPanY = panOffset.y; canvasWrapper.classList.add('dragging'); canvasWrapper.style.transition = 'none'; }
-  function move(e) { if (!hds.active) return; e.preventDefault(); const cx = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX; const cy = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY; panOffset.x = hds.startPanX + (cx - hds.lastX); panOffset.y = hds.startPanY + (cy - hds.lastY); applyCanvasTransform(); }
-  function end() { if (hds.active) { hds.active = false; canvasWrapper.classList.remove('dragging'); } }
-  canvasHandle.addEventListener('mousedown', start); document.addEventListener('mousemove', move); document.addEventListener('mouseup', end);
-  canvasHandle.addEventListener('touchstart', start, { passive: false }); document.addEventListener('touchmove', move, { passive: false }); document.addEventListener('touchend', end); document.addEventListener('touchcancel', end);
-}
+/* ---------------- UI ---------------- */
 
-function setupZoomGestures() {
-  let pinchState = { active: false, startDist: 0, startZoom: 1 };
-  function getDist(t1, t2) { return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY); }
-  canvasContainer.addEventListener('touchstart', e => { if (e.touches.length === 2) { e.preventDefault(); pinchState.active = true; pinchState.startDist = getDist(e.touches[0], e.touches[1]); pinchState.startZoom = zoomLevel; } }, { passive: false });
-  canvasContainer.addEventListener('touchmove', e => { if (pinchState.active && e.touches.length === 2) { e.preventDefault(); const scale = getDist(e.touches[0], e.touches[1]) / pinchState.startDist; setZoom(pinchState.startZoom * scale); } }, { passive: false });
-  canvasContainer.addEventListener('touchend', e => { if (pinchState.active) pinchState.active = false; });
-  canvasContainer.addEventListener('wheel', e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); setZoom(zoomLevel * (e.deltaY > 0 ? 0.9 : 1.1)); } }, { passive: false });
-  if ('ongesturestart' in window) { let g = 1; canvasContainer.addEventListener('gesturestart', e => { e.preventDefault(); g = zoomLevel; }); canvasContainer.addEventListener('gesturechange', e => { e.preventDefault(); setZoom(g * e.scale); }); canvasContainer.addEventListener('gestureend', e => { e.preventDefault(); }); }
-}
+function renderDiscover(){
+  const box = document.getElementById("discover");
+  box.innerHTML = "";
 
-function setupMasterSwitch() {
-  let dragging = false, moved = false, sx = 0, sy = 0, so = { l: 0, t: 0 };
-  function start(e) { e.preventDefault(); e.stopPropagation(); dragging = true; moved = false; const cx = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX; const cy = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY; sx = cx; sy = cy; so.l = masterSwitch.offsetLeft; so.t = masterSwitch.offsetTop; masterSwitch.style.transition = 'none'; }
-  function move(e) { if (!dragging) return; e.preventDefault(); const cx = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX; const cy = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY; const dx = cx - sx, dy = cy - sy; if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved = true; const mx = window.innerWidth - 54, my = window.innerHeight - 54; let nl = Math.max(12, Math.min(so.l + dx, mx)), nt = Math.max(12, Math.min(so.t + dy, my)); masterSwitch.style.left = nl + 'px'; masterSwitch.style.top = nt + 'px'; }
-  function end() { if (dragging) { if (!moved) { isUIVisible = !isUIVisible; topbar.classList.toggle('hidden', !isUIVisible); sidebar?.classList.toggle('hidden', !isUIVisible); statusbar.classList.toggle('hidden', !isUIVisible); if (sidebar && window.innerWidth >= 768) workspace.classList.toggle('expanded', !isUIVisible); } dragging = false; masterSwitch.style.transition = 'all 0.2s ease'; } }
-  masterSwitch.addEventListener('mousedown', start); masterSwitch.addEventListener('touchstart', start, { passive: false }); document.addEventListener('mousemove', move); document.addEventListener('mouseup', end); document.addEventListener('touchmove', move, { passive: false }); document.addEventListener('touchend', end); document.addEventListener('touchcancel', end);
-}
-
-function toggleSidebar() { if (!sidebar) return; sidebar.classList.toggle('hidden'); workspace.classList.toggle('expanded'); setTimeout(() => { canvas.calcOffset(); applyCanvasTransform(); }, 300); }
-
-function initCanvas() {
-  canvasWrapper.style.width = CW + 'px'; canvasWrapper.style.height = CH + 'px';
-  applyCanvasTransform(); updateCanvasInfo(); updateObjectInfo();
-  if (gridVisible) drawGrid();
-  canvasContainer.tabIndex = 0; canvasContainer.focus();
-}
-function applyCanvasTransform() { canvasWrapper.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`; canvasWrapper.style.transformOrigin = 'center center'; }
-function resizeCanvas() {
-  CW = parseInt(document.getElementById('canvasWidth').value) || 1080;
-  CH = parseInt(document.getElementById('canvasHeight').value) || 1920;
-  canvas.setDimensions({ width: CW, height: CH });
-  canvasWrapper.style.width = CW + 'px'; canvasWrapper.style.height = CH + 'px';
-  applyCanvasTransform(); document.getElementById('info-size').textContent = `${CW} × ${CH}`;
-  document.getElementById('canvasInfo').textContent = `${CW} × ${CH} • ${Math.round(zoomLevel * 100)}%`;
-  if (gridVisible) drawGrid(); canvas.renderAll();
-}
-function setZoom(newZoom) {
-  zoomLevel = Math.max(0.1, Math.min(5, newZoom)); applyCanvasTransform(); updateZoomDisplay();
-  if (gridVisible) drawGrid(); canvas.renderAll();
-}
-function updateZoomDisplay() {
-  const z = Math.round(zoomLevel * 100);
-  document.getElementById('zoomDisplay').textContent = z + '%';
-  document.getElementById('info-zoom').textContent = z + '%';
-  document.getElementById('canvasInfo').textContent = `${CW} × ${CH} • ${z}%`;
-}
-function zoomIn() { setZoom(zoomLevel * 1.25); }
-function zoomOut() { setZoom(zoomLevel / 1.25); }
-function resetZoom() { zoomLevel = 1; panOffset.x = 0; panOffset.y = 0; applyCanvasTransform(); updateCanvasInfo(); if (gridVisible) drawGrid(); canvas.renderAll(); }
-
-function drawGrid() {
-  const ctx = gridOverlay.getContext('2d'); const w = CW * zoomLevel, h = CH * zoomLevel;
-  gridOverlay.width = w; gridOverlay.height = h; gridOverlay.style.width = w + 'px'; gridOverlay.style.height = h + 'px';
-  ctx.clearRect(0, 0, w, h); ctx.strokeStyle = 'rgba(0, 214, 122, 0.15)'; ctx.lineWidth = 1;
-  const step = 40 * zoomLevel;
-  for (let x = 0; x <= w; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-  for (let y = 0; y <= h; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-}
-function toggleGrid() { gridVisible = !gridVisible; gridOverlay.style.display = gridVisible ? 'block' : 'none'; if (gridVisible) drawGrid(); }
-
-function updateCanvasInfo() {
-  const z = Math.round(zoomLevel * 100);
-  document.getElementById('info-size').textContent = `${CW} × ${CH}`;
-  document.getElementById('info-zoom').textContent = z + '%';
-  document.getElementById('canvasInfo').textContent = `${CW} × ${CH} • ${z}%`;
-  document.getElementById('zoomDisplay').textContent = z + '%';
-}
-function updateObjectInfo() {
-  const obj = canvas.getActiveObject(), count = canvas.getObjects().length;
-  document.getElementById('info-objects').textContent = count;
-  if (obj) {
-    document.getElementById('selectedInfo').textContent = `Selected: ${obj.type}`;
-    document.getElementById('info-selected').textContent = obj.type;
-    if (['i-text', 'text', 'textbox'].includes(obj.type)) {
-      if (obj.fill && typeof obj.fill === 'string') syncColorInputs('textColor', 'sidebarTextColor', obj.fill);
-      if (obj.fontSize) { const f = document.getElementById('fontSize'), s = document.getElementById('sidebarFontSize'); if (f) f.value = obj.fontSize; if (s) s.value = obj.fontSize; }
-    }
-    if (!['i-text', 'text', 'textbox', 'image', 'group'].includes(obj.type)) {
-      if (obj.fill && typeof obj.fill === 'string') syncColorInputs('shapeFill', 'sidebarShapeFill', obj.fill);
-      if (obj.stroke && typeof obj.stroke === 'string') syncColorInputs('shapeStroke', 'sidebarShapeStroke', obj.stroke);
-    }
-  } else { document.getElementById('selectedInfo').textContent = 'No object selected'; document.getElementById('info-selected').textContent = 'None'; }
-}
-canvas.on('selection:created', updateObjectInfo);
-canvas.on('selection:updated', updateObjectInfo);
-canvas.on('selection:cleared', updateObjectInfo);
-canvas.on('object:modified', updateObjectInfo);
-canvas.on('object:added', updateObjectInfo);
-
-document.addEventListener('keydown', e => {
-  if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || canvas.getActiveObject()?.isEditing) return;
-  if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
-  if (e.ctrlKey || e.metaKey) {
-    if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomIn(); }
-    else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomOut(); }
-    else if (e.key === '0') { e.preventDefault(); resetZoom(); }
+  for(let name in onlineUsers){
+    let div = document.createElement("div");
+    div.className = "user";
+    div.innerHTML = `<span class="onlineDot"></span>${name}`;
+    div.onclick = ()=>callUser(onlineUsers[name]);
+    box.appendChild(div);
   }
-});
+}
 
-function handleResize() { applyCanvasTransform(); updateCanvasInfo(); if (window.innerWidth <= 767) { masterSwitch.style.right = '16px'; masterSwitch.style.bottom = 'calc(42px + env(safe-area-inset-bottom));' } else { masterSwitch.style.right = '24px'; masterSwitch.style.bottom = 'calc(48px + env(safe-area-inset-bottom));' } }
+/* ---------------- CALL ---------------- */
 
-window.addEventListener('load', () => {
-  initCanvas(); setupCanvasHandle(); setupZoomGestures(); setupMasterSwitch();
-  canvasContainer.addEventListener('mousedown', startPan);
-  canvasContainer.addEventListener('touchstart', startPan, { passive: false });
-  document.addEventListener('mousemove', onPan); document.addEventListener('mouseup', endPan);
-  document.addEventListener('touchmove', onPan, { passive: false }); document.addEventListener('touchend', endPan); document.addEventListener('touchcancel', endPan);
-  if (isMobile) { masterSwitch.style.right = '16px'; masterSwitch.style.bottom = 'calc(42px + env(safe-area-inset-bottom));' }
-  else { masterSwitch.style.right = '24px'; masterSwitch.style.bottom = 'calc(48px + env(safe-area-inset-bottom));' }
-  window.addEventListener('resize', handleResize);
-  window.addEventListener('orientationchange', () => setTimeout(handleResize, 300));
-  topbarScroll?.addEventListener('scroll', () => document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('active')));
-  updateCanvasInfo(); updateObjectInfo();
-  
-  // Ensure topbar starts at the left (Text button)
-  if (topbarScroll) topbarScroll.scrollLeft = 0;
-});
+function callUser(id){
+  if(!peer || !stream) return;
 
-document.addEventListener('touchmove', e => {
-  if (e.target.closest('.canvas-container') && !e.target.closest('.topbar-scroll')) e.preventDefault();
-}, { passive: false });
+  setStatus("Calling " + id);
+
+  const call = peer.call(id, stream);
+  currentCall = call;
+
+  call.on("stream", remote=>{
+    document.getElementById("audio").srcObject = remote;
+    setStatus("In Call");
+  });
+}
+
 </script>
+
 </body>
 </html>
