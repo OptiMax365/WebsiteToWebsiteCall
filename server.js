@@ -3,33 +3,25 @@ const http = require("http");
 const WebSocket = require("ws");
 const path = require("path");
 
-/* -------------------------- */
-/* EXPRESS APP */
-/* -------------------------- */
-
 const app = express();
 
 const server = http.createServer(app);
-
-/* -------------------------- */
-/* WEBSOCKET SERVER */
-/* -------------------------- */
 
 const wss = new WebSocket.Server({
     server
 });
 
 /* -------------------------- */
-/* STORE ONLINE USERS */
+/* ONLINE USERS */
 /* -------------------------- */
 
 const users = new Map();
 
 /*
 users = {
-   id : {
-      id,
-      name
+   peerId : {
+      peerId,
+      username
    }
 }
 */
@@ -45,7 +37,7 @@ app.use(
 );
 
 /* -------------------------- */
-/* BROADCAST USERS */
+/* BROADCAST ONLINE USERS */
 /* -------------------------- */
 
 function broadcastUsers(){
@@ -72,18 +64,12 @@ function broadcastUsers(){
 }
 
 /* -------------------------- */
-/* NEW SOCKET CONNECTION */
+/* SOCKET CONNECTION */
 /* -------------------------- */
 
 wss.on("connection", (ws) => {
 
-    console.log("User connected");
-
-    let currentUserId = null;
-
-    /* ---------------------- */
-    /* RECEIVE MESSAGE */
-    /* ---------------------- */
+    let currentPeerId = null;
 
     ws.on("message", (msg) => {
 
@@ -98,15 +84,18 @@ wss.on("connection", (ws) => {
 
             if(data.type === "join"){
 
-                currentUserId = data.id;
+                currentPeerId = data.peerId;
 
-                users.set(currentUserId, {
-                    id:data.id,
-                    name:data.name
+                users.set(currentPeerId, {
+
+                    peerId:data.peerId,
+
+                    username:data.username
+
                 });
 
                 console.log(
-                    data.name +
+                    data.username +
                     " joined"
                 );
 
@@ -123,16 +112,14 @@ wss.on("connection", (ws) => {
     });
 
     /* ---------------------- */
-    /* USER DISCONNECT */
+    /* USER LEAVES */
     /* ---------------------- */
 
-    ws.on("close", () => {
+    ws.on("close", ()=>{
 
-        console.log("User disconnected");
+        if(currentPeerId){
 
-        if(currentUserId){
-
-            users.delete(currentUserId);
+            users.delete(currentPeerId);
 
             broadcastUsers();
 
@@ -149,7 +136,7 @@ wss.on("connection", (ws) => {
 const PORT =
     process.env.PORT || 3000;
 
-server.listen(PORT, () => {
+server.listen(PORT, ()=>{
 
     console.log(
         "Server running on port " + PORT
