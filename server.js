@@ -1,81 +1,158 @@
+const express = require("express");
+const http = require("http");
 const WebSocket = require("ws");
+const path = require("path");
 
-const wss = new WebSocket.Server({ port: 3000 });
+/* -------------------------- */
+/* EXPRESS APP */
+/* -------------------------- */
 
-/*
-Structure:
-users = {
-  peerId: { peerId, username, room }
-}
-*/
+const app = express();
+
+const server = http.createServer(app);
+
+/* -------------------------- */
+/* WEBSOCKET SERVER */
+/* -------------------------- */
+
+const wss = new WebSocket.Server({
+    server
+});
+
+/* -------------------------- */
+/* STORE ONLINE USERS */
+/* -------------------------- */
 
 const users = new Map();
 
-function broadcastRoom(room) {
-    const list = Array.from(users.values())
-        .filter(u => u.room === room);
+/*
+users = {
+   id : {
+      id,
+      name
+   }
+}
+*/
 
-    const payload = JSON.stringify({
-        type: "users",
-        room,
-        users: list
+/* -------------------------- */
+/* SERVE FRONTEND */
+/* -------------------------- */
+
+app.use(
+    express.static(
+        path.join(__dirname, "public")
+    )
+);
+
+/* -------------------------- */
+/* BROADCAST USERS */
+/* -------------------------- */
+
+function broadcastUsers(){
+
+    const list =
+        Array.from(users.values());
+
+    const payload =
+        JSON.stringify({
+            type:"users",
+            users:list
+        });
+
+    wss.clients.forEach(client => {
+
+        if(client.readyState === WebSocket.OPEN){
+
+            client.send(payload);
+
+        }
+
     });
 
-    for (const client of wss.clients) {
-        if (client.readyState === 1) {
-            client.send(payload);
-        }
-    }
 }
 
-function broadcastAll() {
-    const rooms = new Set(Array.from(users.values()).map(u => u.room));
-
-    rooms.forEach(r => broadcastRoom(r));
-}
+/* -------------------------- */
+/* NEW SOCKET CONNECTION */
+/* -------------------------- */
 
 wss.on("connection", (ws) => {
 
+    console.log("User connected");
+
+    let currentUserId = null;
+
+    /* ---------------------- */
+    /* RECEIVE MESSAGE */
+    /* ---------------------- */
+
     ws.on("message", (msg) => {
-        const data = JSON.parse(msg);
 
-        /* JOIN ROOM */
-        if (data.type === "join") {
+        try{
 
-            users.set(data.peerId, {
-                peerId: data.peerId,
-                username: data.username,
-                room: data.room
-            });
+            const data =
+                JSON.parse(msg);
 
-            broadcastRoom(data.room);
-        }
+            /* ------------------ */
+            /* USER JOIN */
+            /* ------------------ */
 
-        /* SWITCH ROOM */
-        if (data.type === "switch") {
+            if(data.type === "join"){
 
-            const user = users.get(data.peerId);
-            if (user) {
-                user.room = data.room;
-                users.set(data.peerId, user);
-                broadcastAll();
+                currentUserId = data.id;
+
+                users.set(currentUserId, {
+                    id:data.id,
+                    name:data.name
+                });
+
+                console.log(
+                    data.name +
+                    " joined"
+                );
+
+                broadcastUsers();
+
             }
+
+        }catch(err){
+
+            console.log(err);
+
         }
 
-        /* LEAVE */
-        if (data.type === "leave") {
-            const user = users.get(data.peerId);
-            if (user) {
-                users.delete(data.peerId);
-                broadcastRoom(user.room);
-            }
-        }
     });
+
+    /* ---------------------- */
+    /* USER DISCONNECT */
+    /* ---------------------- */
 
     ws.on("close", () => {
-        // cleanup best-effort
-        broadcastAll();
+
+        console.log("User disconnected");
+
+        if(currentUserId){
+
+            users.delete(currentUserId);
+
+            broadcastUsers();
+
+        }
+
     });
+
 });
 
-console.log("NEON WORLD v2 tracker running on ws://localhost:3000");
+/* -------------------------- */
+/* START SERVER */
+/* -------------------------- */
+
+const PORT =
+    process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+
+    console.log(
+        "Server running on port " + PORT
+    );
+
+});

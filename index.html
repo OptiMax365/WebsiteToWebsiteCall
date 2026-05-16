@@ -1,209 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>NEON WORLD v2</title>
-
-<style>
-body{
-    margin:0;
-    background:#020702;
-    color:#00ff99;
-    font-family:Arial;
-}
-
-h1{
-    text-align:center;
-    text-shadow:0 0 20px #00ff99;
-}
-
-.box{
-    width:360px;
-    margin:12px auto;
-    padding:14px;
-    border:1px solid #00ff99;
-    border-radius:12px;
-    background:rgba(0,0,0,0.7);
-    box-shadow:0 0 15px #00ff99;
-}
-
-input, select{
-    width:92%;
-    padding:10px;
-    margin-top:6px;
-    background:#001a10;
-    border:none;
-    color:#00ff99;
-    border-radius:8px;
-}
-
-button{
-    width:100%;
-    margin-top:10px;
-    padding:10px;
-    background:#003b22;
-    color:#00ff99;
-    border:none;
-    border-radius:8px;
-    cursor:pointer;
-}
-
-.user{
-    padding:10px;
-    margin-top:8px;
-    border:1px solid #00ff99;
-    border-radius:8px;
-    cursor:pointer;
-}
-
-.user:hover{
-    background:#003322;
-}
-</style>
+<title>Click Tracker</title>
 </head>
 
 <body>
 
-<h1>⚡ NEON WORLD v2</h1>
+<h1>LIVE CLICKS</h1>
 
-<div class="box">
-    <div>Username</div>
-    <input id="username">
+<h2 id="count">0</h2>
 
-    <div>Room</div>
-    <select id="room">
-        <option value="global">global</option>
-        <option value="neon-alpha">neon-alpha</option>
-        <option value="neon-beta">neon-beta</option>
-        <option value="voice-lab">voice-lab</option>
-    </select>
-
-    <button onclick="goOnline()">ENTER NEON WORLD</button>
-</div>
-
-<div class="box">
-    STATUS: <span id="status">OFFLINE</span><br>
-    YOU: <span id="me">---</span><br>
-    ROOM: <span id="roomLabel">---</span>
-</div>
-
-<div class="box">
-    <b>LIVE USERS</b>
-    <div id="users"></div>
-</div>
-
-<audio id="audio" autoplay></audio>
-
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<button onclick="sendClick()">CLICK ME</button>
 
 <script>
 
-let peer;
-let stream;
-let tracker;
+let ws;
 
-let currentRoom = "global";
-const peers = new Map();
+function connect(){
 
-function setStatus(t){
-    document.getElementById("status").innerText = t;
-}
+    ws = new WebSocket("ws://localhost:3000");
 
-async function goOnline(){
-
-    const name = document.getElementById("username").value || "user";
-    const clean = name.replace(/[^a-zA-Z0-9]/g,"").toLowerCase();
-
-    currentRoom = document.getElementById("room").value;
-
-    document.getElementById("me").innerText = clean;
-    document.getElementById("roomLabel").innerText = currentRoom;
-
-    stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-
-    const peerId = "neon_" + clean + "_" + Math.floor(Math.random()*9999);
-
-    peer = new Peer(peerId);
-
-    peer.on("open", () => {
-
-        setStatus("ONLINE");
-
-        connectTracker(clean);
-
-    });
-
-    peer.on("call", call => {
-        call.answer(stream);
-
-        call.on("stream", remote => {
-            document.getElementById("audio").srcObject = remote;
-            setStatus("CONNECTED");
-        });
-    });
-}
-
-function connectTracker(username){
-
-    tracker = new WebSocket("ws://localhost:3000");
-
-    tracker.onopen = () => {
-
-        tracker.send(JSON.stringify({
-            type:"join",
-            peerId: peer.id,
-            username,
-            room: currentRoom
-        }));
-    };
-
-    tracker.onmessage = (event) => {
+    ws.onmessage = (event) => {
 
         const data = JSON.parse(event.data);
 
-        if(data.type === "users"){
-
-            peers.clear();
-
-            data.users.forEach(u => {
-                peers.set(u.peerId, u);
-            });
-
-            render();
+        if (data.type === "count") {
+            document.getElementById("count").innerText = data.count;
         }
     };
 }
 
-function render(){
-
-    const box = document.getElementById("users");
-    box.innerHTML = "";
-
-    peers.forEach(u => {
-
-        if(u.peerId === peer.id) return;
-
-        const div = document.createElement("div");
-        div.className = "user";
-        div.innerText = u.username + " [" + u.room + "]";
-
-        div.onclick = () => call(u.peerId);
-
-        box.appendChild(div);
-    });
+function sendClick(){
+    ws.send(JSON.stringify({
+        type:"click"
+    }));
 }
 
-function call(id){
-
-    setStatus("CALLING...");
-
-    const c = peer.call(id, stream);
-
-    c.on("stream", remote => {
-        document.getElementById("audio").srcObject = remote;
-        setStatus("VOICE CONNECTED");
-    });
-}
+connect();
 
 </script>
 
