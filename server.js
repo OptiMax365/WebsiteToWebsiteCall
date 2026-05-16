@@ -24,142 +24,100 @@ CREATE TABLE IF NOT EXISTS users (
 const sockets = new Map();
 const peers = new Map();
 
-function normalize(u){
-  return (u || "").trim().toLowerCase();
-}
+function norm(u){ return (u||"").toLowerCase().trim(); }
 
-function send(user, data){
+function send(user,data){
   const ws = sockets.get(user);
-  if(ws && ws.readyState === WebSocket.OPEN){
+  if(ws && ws.readyState===WebSocket.OPEN){
     ws.send(JSON.stringify(data));
   }
 }
 
-function broadcastUsers(){
-  const users = Array.from(peers.entries()).map(([username, peerId]) => ({
-    username,
-    peerId
-  }));
+function broadcast(){
+  const users = Array.from(peers.entries())
+    .map(([username,peerId])=>({username,peerId}));
 
   wss.clients.forEach(c=>{
-    if(c.readyState === WebSocket.OPEN){
-      c.send(JSON.stringify({
-        type:"users",
-        users
-      }));
+    if(c.readyState===WebSocket.OPEN){
+      c.send(JSON.stringify({type:"users",users}));
     }
   });
 }
 
 wss.on("connection",(ws)=>{
 
-  let currentUser = null;
+  let currentUser=null;
 
-  ws.on("message", async(msg)=>{
+  ws.on("message",async(msg)=>{
 
-    const data = JSON.parse(msg);
+    const d=JSON.parse(msg);
 
-    /* SIGNUP */
-    if(data.type === "signup"){
+    if(d.type==="signup"){
+      const u=norm(d.username);
 
-      const username = normalize(data.username);
-
-      const exists = await pool.query(
-        "SELECT username FROM users WHERE username=$1",
-        [username]
+      const exists=await pool.query(
+        "SELECT * FROM users WHERE username=$1",[u]
       );
 
-      if(exists.rows.length){
-        return ws.send(JSON.stringify({
-          type:"error",
-          message:"Username exists"
-        }));
-      }
+      if(exists.rows.length)
+        return ws.send(JSON.stringify({type:"error",message:"Exists"}));
 
       await pool.query(
-        "INSERT INTO users(username) VALUES($1)",
-        [username]
+        "INSERT INTO users(username) VALUES($1)",[u]
       );
 
-      return ws.send(JSON.stringify({
-        type:"ok",
-        message:"Signup successful"
-      }));
+      return ws.send(JSON.stringify({type:"ok",message:"Signup OK"}));
     }
 
-    /* SIGNIN */
-    if(data.type === "signin"){
+    if(d.type==="signin"){
+      const u=norm(d.username);
 
-      const username = normalize(data.username);
-
-      const user = await pool.query(
-        "SELECT username FROM users WHERE username=$1",
-        [username]
+      const user=await pool.query(
+        "SELECT * FROM users WHERE username=$1",[u]
       );
 
-      if(!user.rows.length){
-        return ws.send(JSON.stringify({
-          type:"error",
-          message:"Not registered"
-        }));
-      }
+      if(!user.rows.length)
+        return ws.send(JSON.stringify({type:"error",message:"Not found"}));
 
-      currentUser = username;
+      currentUser=u;
+      sockets.set(u,ws);
 
-      sockets.set(username, ws);
-
-      ws.send(JSON.stringify({
-        type:"ok",
-        message:"authenticated"
-      }));
-
-      return;
+      return ws.send(JSON.stringify({type:"ok",message:"auth"}));
     }
 
-    /* BLOCK UNAUTH */
-    if(!currentUser){
-      return ws.send(JSON.stringify({
-        type:"error",
-        message:"Not authenticated"
-      }));
-    }
+    if(!currentUser) return;
 
-    /* UPDATE PEER */
-    if(data.type === "signin" && data.peerId){
-      peers.set(currentUser, data.peerId);
-      broadcastUsers();
-    }
-
-    /* CALL */
-    if(data.type === "call-request"){
-      send(data.to, {
+    if(d.type==="call-request"){
+      send(d.to,{
         type:"incoming-call",
         from:currentUser,
         peerId:peers.get(currentUser)
       });
     }
 
-    /* END CALL */
-    if(data.type === "end-call"){
-      send(data.to,{type:"call-ended"});
+    if(d.type==="accept-call"){
+      send(d.to,{type:"call-start"});
     }
 
-    /* LOGOUT */
-    if(data.type === "logout"){
-      sockets.delete(currentUser);
-      peers.delete(currentUser);
-      broadcastUsers();
-      currentUser = null;
+    if(d.type==="end-call"){
+      send(d.to,{type:"call-ended"});
     }
+
+    if(d.type==="peer"){
+      peers.set(currentUser,d.peerId);
+      broadcast();
+    }
+
   });
 
   ws.on("close",()=>{
     if(currentUser){
       sockets.delete(currentUser);
       peers.delete(currentUser);
-      broadcastUsers();
+      broadcast();
     }
   });
+
 });
 
-server.listen(process.env.PORT || 3000);
+server.listen(3000);

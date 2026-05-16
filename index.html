@@ -13,6 +13,7 @@ body {
   overflow-x:hidden;
 }
 
+/* neon background */
 body::before {
   content:"";
   position:fixed;
@@ -30,10 +31,13 @@ body::before {
   to { transform:scale(1.1); opacity:1; }
 }
 
-h2 { text-align:center; text-shadow:0 0 12px #00ff99; }
+h2 {
+  text-align:center;
+  text-shadow:0 0 12px #00ff99;
+}
 
 .box {
-  width:340px;
+  width:360px;
   margin:15px auto;
   padding:15px;
   border:1px solid #00ff99;
@@ -42,27 +46,77 @@ h2 { text-align:center; text-shadow:0 0 12px #00ff99; }
   box-shadow:0 0 18px #00ff99;
 }
 
-input, button {
+/* INPUTS */
+input {
+  width:90%;
   padding:10px;
   margin:5px;
   border-radius:8px;
   border:none;
   background:#001a10;
   color:#00ff99;
-  box-shadow:0 0 10px #00ff99;
+  box-shadow:0 0 8px #00ff99;
 }
 
-button:hover { cursor:pointer; transform:scale(1.05); }
+/* BUTTONS */
+button {
+  padding:10px;
+  margin:5px;
+  border-radius:8px;
+  border:none;
+  background:#001a10;
+  color:#00ff99;
+  box-shadow:0 0 8px #00ff99;
+  transition:0.2s;
+}
 
-#status { animation: blink 1.2s infinite; }
+button:hover {
+  transform:scale(1.08);
+  box-shadow:0 0 20px #00ff99;
+  cursor:pointer;
+}
 
-@keyframes blink { 50% { opacity:0.4; } }
+button:active {
+  transform:scale(0.95);
+  box-shadow:0 0 30px #00ff99;
+}
 
+/* STATUS BLINK */
+#status {
+  animation: blink 1.2s infinite;
+}
+@keyframes blink {
+  50% { opacity:0.4; }
+}
+
+/* USER LIST */
 .user {
   border:1px solid #00ff99;
   padding:5px;
   margin:4px;
   border-radius:6px;
+}
+
+/* CALL MODAL */
+#callModal {
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.85);
+  justify-content:center;
+  align-items:center;
+}
+
+.modalBox {
+  background:#001a10;
+  padding:20px;
+  border:1px solid #00ff99;
+  border-radius:12px;
+  text-align:center;
+  box-shadow:0 0 20px #00ff99;
 }
 
 </style>
@@ -76,28 +130,49 @@ button:hover { cursor:pointer; transform:scale(1.05); }
   Status: <span id="status">Idle</span>
 </div>
 
+<!-- SIGNUP -->
 <div class="box">
-  <input id="name" placeholder="Username" />
-  <button onclick="start()">Login</button>
+  <h3>Signup</h3>
+  <input id="su_user" placeholder="username" />
+  <button onclick="signup()">Signup</button>
 </div>
 
+<!-- LOGIN -->
+<div class="box">
+  <h3>Login</h3>
+  <input id="li_user" placeholder="username" />
+  <button onclick="login()">Login</button>
+</div>
+
+<!-- ID -->
 <div class="box">
   Your ID:
   <div id="myId">---</div>
 </div>
 
+<!-- CALL -->
 <div class="box">
-  <input id="callTo" placeholder="Call user ID" />
+  <input id="callTo" placeholder="Call user" />
   <button onclick="callUser()">Call</button>
   <button onclick="endCall()">End</button>
 </div>
 
+<!-- USERS -->
 <div class="box">
   <b>Online Users</b>
   <div id="network"></div>
 </div>
 
 <audio id="audio" autoplay></audio>
+
+<!-- CALL MODAL -->
+<div id="callModal">
+  <div class="modalBox">
+    <h3 id="callText">Incoming Call</h3>
+    <button onclick="acceptCall()">Accept</button>
+    <button onclick="rejectCall()">Reject</button>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
@@ -108,49 +183,51 @@ let stream;
 let call;
 let myPeerId;
 let username;
+let incomingData;
 
+/* UI */
 function setStatus(t){
   document.getElementById("status").innerText = t;
 }
 
-function renderUsers(users){
-  const box = document.getElementById("network");
-  box.innerHTML = "";
-
-  users.forEach(u=>{
-    const div = document.createElement("div");
-    div.className = "user";
-    div.innerText = u.username + " → " + u.peerId;
-    box.appendChild(div);
-  });
-}
-
-async function start(){
-
-  username = document.getElementById("name").value.trim().toLowerCase();
-  if(!username) return;
-
-  stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+/* SIGNUP */
+function signup(){
+  const u = document.getElementById("su_user").value.trim();
 
   ws = new WebSocket(location.origin.replace("http","ws"));
 
-  ws.onopen = () => {
-    setStatus("Connecting...");
-    ws.send(JSON.stringify({
-      type:"signin",
-      username,
-      peerId:null
-    }));
+  ws.onopen = ()=>{
+    ws.send(JSON.stringify({ type:"signup", username:u }));
   };
 
-  ws.onmessage = (msg) => {
-    const data = JSON.parse(msg.data);
+  ws.onmessage = (msg)=>{
+    const d = JSON.parse(msg.data);
+    alert(d.message);
+  };
+}
 
-    if(data.type === "error"){
-      setStatus(data.message);
+/* LOGIN */
+async function login(){
+
+  username = document.getElementById("li_user").value.trim();
+
+  stream = await navigator.mediaDevices.getUserMedia({audio:true});
+
+  ws = new WebSocket(location.origin.replace("http","ws"));
+
+  ws.onopen = ()=>{
+    ws.send(JSON.stringify({ type:"signin", username }));
+  };
+
+  ws.onmessage = (msg)=>{
+
+    const d = JSON.parse(msg.data);
+
+    if(d.type === "error"){
+      setStatus(d.message);
     }
 
-    if(data.type === "ok" && data.message === "authenticated"){
+    if(d.type === "ok"){
 
       myPeerId = username + "_" + Math.random().toString(36).slice(2,7);
 
@@ -168,37 +245,48 @@ async function start(){
 
         c.on("stream", rstream=>{
           document.getElementById("audio").srcObject = rstream;
-          setStatus("In call");
+          setStatus("In Call");
         });
       });
     }
 
-    if(data.type === "users"){
-      renderUsers(data.users);
+    if(d.type === "users"){
+      renderUsers(d.users);
     }
 
-    if(data.type === "incoming-call"){
-      setStatus("Incoming call...");
+    if(d.type === "incoming-call"){
+      incomingData = d;
+      document.getElementById("callText").innerText =
+        "Call from " + d.from;
 
-      const c = peer.call(data.peerId, stream);
-      call = c;
-
-      c.on("stream", rstream=>{
-        document.getElementById("audio").srcObject = rstream;
-        setStatus("In call");
-      });
+      document.getElementById("callModal").style.display = "flex";
     }
 
-    if(data.type === "call-ended"){
+    if(d.type === "call-ended"){
       if(call) call.close();
-      document.getElementById("audio").srcObject = null;
       setStatus("Idle");
+      document.getElementById("audio").srcObject = null;
     }
   };
 }
 
+/* USERS */
+function renderUsers(users){
+  const box = document.getElementById("network");
+  box.innerHTML = "";
+  users.forEach(u=>{
+    const div = document.createElement("div");
+    div.className = "user";
+    div.innerText = u.username + " → " + u.peerId;
+    box.appendChild(div);
+  });
+}
+
+/* CALL */
 function callUser(){
   const id = document.getElementById("callTo").value.trim();
+
+  setStatus("Calling " + id);
 
   ws.send(JSON.stringify({
     type:"call-request",
@@ -207,6 +295,33 @@ function callUser(){
   }));
 }
 
+/* ACCEPT CALL */
+function acceptCall(){
+
+  document.getElementById("callModal").style.display = "none";
+
+  const c = peer.call(incomingData.peerId, stream);
+  call = c;
+
+  c.on("stream", rstream=>{
+    document.getElementById("audio").srcObject = rstream;
+    setStatus("In Call");
+  });
+
+  ws.send(JSON.stringify({
+    type:"accept-call",
+    from:incomingData.from,
+    to:username
+  }));
+}
+
+/* REJECT */
+function rejectCall(){
+  document.getElementById("callModal").style.display = "none";
+  setStatus("Rejected");
+}
+
+/* END */
 function endCall(){
   if(call) call.close();
 
