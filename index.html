@@ -1,44 +1,303 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<title>Click Tracker</title>
+
+<meta charset="UTF-8">
+
+<title>INTERNET PHONE APP</title>
+
+<style>
+
+body{
+    margin:0;
+    background:#081108;
+    color:#00ff99;
+    font-family:Arial;
+    text-align:center;
+}
+
+/* TITLE */
+
+h1{
+    margin-top:30px;
+    text-shadow:0 0 20px #00ff99;
+}
+
+/* BOX */
+
+.box{
+    width:340px;
+    margin:20px auto;
+    padding:15px;
+
+    border:1px solid #00ff99;
+    border-radius:12px;
+
+    background:rgba(0,0,0,0.7);
+
+    box-shadow:0 0 20px #00ff99;
+}
+
+/* INPUT */
+
+input{
+    width:90%;
+    padding:12px;
+
+    background:#001a10;
+    color:#00ff99;
+
+    border:none;
+    border-radius:10px;
+
+    outline:none;
+}
+
+/* BUTTON */
+
+button{
+    width:100%;
+    padding:12px;
+    margin-top:10px;
+
+    background:#003b22;
+    color:#00ff99;
+
+    border:none;
+    border-radius:10px;
+
+    cursor:pointer;
+
+    box-shadow:0 0 10px #00ff99;
+}
+
+button:hover{
+    transform:scale(1.03);
+}
+
+/* USER CARD */
+
+.user{
+    padding:12px;
+    margin-top:10px;
+
+    border:1px solid #00ff99;
+    border-radius:10px;
+
+    animation:pulse 2s infinite;
+}
+
+/* ANIMATION */
+
+@keyframes pulse{
+
+    0%{
+        box-shadow:0 0 5px #00ff99;
+    }
+
+    50%{
+        box-shadow:0 0 20px #00ff99;
+    }
+
+    100%{
+        box-shadow:0 0 5px #00ff99;
+    }
+
+}
+
+.onlineDot{
+    width:10px;
+    height:10px;
+
+    background:#00ff99;
+
+    border-radius:50%;
+
+    display:inline-block;
+
+    margin-right:8px;
+}
+
+#status{
+    margin-top:10px;
+    color:#66ffcc;
+}
+
+</style>
+
 </head>
 
 <body>
 
-<h1>LIVE CLICKS</h1>
+<h1>🌍 INTERNET PHONE APP</h1>
 
-<h2 id="count">0</h2>
+<div class="box">
 
-<button onclick="sendClick()">CLICK ME</button>
+    <input
+        id="username"
+        placeholder="Enter Username"
+    >
+
+    <button onclick="joinNetwork()">
+
+        JOIN NETWORK
+
+    </button>
+
+    <div id="status">
+        OFFLINE
+    </div>
+
+</div>
+
+<div class="box">
+
+    <h3>ONLINE USERS</h3>
+
+    <div id="users"></div>
+
+</div>
 
 <script>
 
+/* ------------------------ */
+/* GLOBALS */
+/* ------------------------ */
+
 let ws;
 
-function connect(){
+const myId =
+    Math.random()
+    .toString(36)
+    .substring(2,10);
 
-    ws = new WebSocket("ws://localhost:3000");
+/* ------------------------ */
+/* STATUS */
+/* ------------------------ */
+
+function setStatus(text){
+
+    document.getElementById("status")
+    .innerText = text;
+
+}
+
+/* ------------------------ */
+/* JOIN NETWORK */
+/* ------------------------ */
+
+function joinNetwork(){
+
+    const username =
+        document
+        .getElementById("username")
+        .value
+        .trim();
+
+    if(!username){
+
+        alert("Enter username");
+
+        return;
+
+    }
+
+    /*
+    auto ws/wss
+    */
+
+    const protocol =
+        location.protocol === "https:"
+        ? "wss"
+        : "ws";
+
+    /*
+    connect websocket
+    */
+
+    ws = new WebSocket(
+        protocol + "://" + location.host
+    );
+
+    /* CONNECTED */
+
+    ws.onopen = () => {
+
+        console.log("Connected");
+
+        setStatus("ONLINE");
+
+        ws.send(JSON.stringify({
+
+            type:"join",
+
+            id:myId,
+
+            name:username
+
+        }));
+
+    };
+
+    /* RECEIVE USERS */
 
     ws.onmessage = (event) => {
 
-        const data = JSON.parse(event.data);
+        const data =
+            JSON.parse(event.data);
 
-        if (data.type === "count") {
-            document.getElementById("count").innerText = data.count;
+        if(data.type === "users"){
+
+            renderUsers(data.users);
+
         }
+
     };
+
+    /* DISCONNECTED */
+
+    ws.onclose = () => {
+
+        console.log("Disconnected");
+
+        setStatus("OFFLINE");
+
+    };
+
 }
 
-function sendClick(){
-    ws.send(JSON.stringify({
-        type:"click"
-    }));
-}
+/* ------------------------ */
+/* RENDER USERS */
+/* ------------------------ */
 
-connect();
+function renderUsers(users){
+
+    const usersBox =
+        document.getElementById("users");
+
+    usersBox.innerHTML = "";
+
+    users.forEach(user => {
+
+        const div =
+            document.createElement("div");
+
+        div.className = "user";
+
+        div.innerHTML = `
+            <span class="onlineDot"></span>
+            ${user.name}
+        `;
+
+        usersBox.appendChild(div);
+
+    });
+
+}
 
 </script>
 
 </body>
+
 </html>
