@@ -1,127 +1,173 @@
-// server.js
 import express from "express";
-import cors from "cors";
+import http from "http";
+import { PeerServer } from "peer";
+import { Pool } from "pg";
 import bcrypt from "bcrypt";
-import pkg from "pg";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const { Pool } = pkg;
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// ======================
-// PORT
-// ======================
-const PORT = process.env.PORT || 3000;
-
-// ======================
-// DATABASE CONNECTION
-// ======================
-// Use internal Render URL if deployed on Render
-// Or external URL if you want to connect externally
-const connectionString = process.env.DATABASE_URL || 
-    "postgresql://admin:jJYTKV0cpikWb4aN5bTIhOaQIN6Tm70Z@dpg-d844caeq1p3s738l08g0-a/voice_mesh_db";
-
-if (!connectionString) {
-    console.error("❌ DATABASE_URL is not set! Exiting.");
-    process.exit(1);
-}
+const server = http.createServer(app);
 
 const pool = new Pool({
-    connectionString,
-    ssl: { rejectUnauthorized: true } // required for Render PostgreSQL
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
-// ======================
-// MIDDLEWARE
-// ======================
-app.use(cors());
 app.use(express.json());
 
-// ======================
-// DATABASE INIT
-// ======================
-async function startDatabase() {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS users(
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(100) UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-        console.log("✅ Database Ready");
-    } catch (err) {
-        console.error("❌ Database Error:", err);
-    }
+app.use(express.static(__dirname));
+
+const peerServer = PeerServer({
+  port: 0,
+  path: "/"
+});
+
+app.use("/peerjs", peerServer);
+
+async function createTable(){
+
+  try{
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users(
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
+      )
+    `);
+
+    console.log("USERS TABLE READY");
+
+  }catch(err){
+
+    console.log("Database Error:", err);
+
+  }
+
 }
 
-startDatabase();
+createTable();
 
-// ======================
-// ROUTES
-// ======================
-app.get("/", (req, res) => {
-    res.send("VOICE MESH SERVER RUNNING");
+app.get("/", (req,res)=>{
+  res.sendFile(path.join(__dirname,"index.html"));
 });
 
-app.post("/signup", async (req, res) => {
-    try {
-        let { username, password } = req.body;
+app.post("/signup", async (req,res)=>{
 
-        if (!username || !password) {
-            return res.status(400).json({ error: "Missing username or password" });
-        }
+  try{
 
-        username = username.toLowerCase().trim();
+    const { username, password } = req.body;
 
-        const check = await pool.query("SELECT * FROM users WHERE username=$1", [username]);
-        if (check.rows.length > 0) {
-            return res.status(400).json({ error: "Username already exists" });
-        }
+    const existing =
+      await pool.query(
+        "SELECT * FROM users WHERE username=$1",
+        [username]
+      );
 
-        const hashed = await bcrypt.hash(password, 10);
-        await pool.query("INSERT INTO users(username,password) VALUES($1,$2)", [username, hashed]);
+    if(existing.rows.length > 0){
 
-        res.json({ success: true, message: "User registered" });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Signup server error" });
+      return res.json({
+        success:false,
+        message:"Username already exists"
+      });
+
     }
+
+    const hash =
+      await bcrypt.hash(password,10);
+
+    await pool.query(
+      "INSERT INTO users(username,password) VALUES($1,$2)",
+      [username,hash]
+    );
+
+    res.json({
+      success:true
+    });
+
+  }catch(err){
+
+    console.log(err);
+
+    res.json({
+      success:false,
+      message:"Signup failed"
+    });
+
+  }
+
 });
 
-app.post("/login", async (req, res) => {
-    try {
-        let { username, password } = req.body;
+app.post("/login", async (req,res)=>{
 
-        if (!username || !password) {
-            return res.status(400).json({ error: "Missing username or password" });
-        }
+  try{
 
-        username = username.toLowerCase().trim();
+    const { username, password } = req.body;
 
-        const result = await pool.query("SELECT * FROM users WHERE username=$1", [username]);
-        if (result.rows.length === 0) {
-            return res.status(400).json({ error: "Invalid username" });
-        }
+    const result =
+      await pool.query(
+        "SELECT * FROM users WHERE username=$1",
+        [username]
+      );
 
-        const user = result.rows[0];
-        const valid = await bcrypt.compare(password, user.password);
+    if(result.rows.length === 0){
 
-        if (!valid) {
-            return res.status(400).json({ error: "Invalid password" });
-        }
+      return res.json({
+        success:false,
+        message:"User not found"
+      });
 
-        res.json({ success: true, username: user.username, message: "Login success" });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Login server error" });
     }
+
+    const user = result.rows[0];
+
+    const valid =
+      await bcrypt.compare(
+        password,
+        user.password
+      );
+
+    if(!valid){
+
+      return res.json({
+        success:false,
+        message:"Wrong password"
+      });
+
+    }
+
+    res.json({
+      success:true,
+      username:user.username
+    });
+
+  }catch(err){
+
+    console.log(err);
+
+    res.json({
+      success:false,
+      message:"Login failed"
+    });
+
+  }
+
 });
 
-// ======================
-// START SERVER
-// ======================
-app.listen(PORT, () => {
-    console.log(`✅ SERVER RUNNING ON PORT ${PORT}`);
+const PORT = process.env.PORT || 10000;
+
+server.listen(PORT,()=>{
+
+  console.log("SERVER RUNNING ON PORT",PORT);
+
 });

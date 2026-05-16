@@ -1,3 +1,2 @@
-PORT=3000
-DATABASE_URL=postgresql://admin:jJYTKV0cpikWb4aN5bTIhOaQIN6Tm70Z@dpg-d844caeq1p3s738l08g0-a/voice_mesh_db
-SESSION_SECRET=supersecretkey
+node_modules
+.env

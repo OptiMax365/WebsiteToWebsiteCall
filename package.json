@@ -1,15 +1,17 @@
 {
-  "name": "voice-mesh-server",
+  "name": "neon-voice-mesh",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Voice mesh calling app",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
-    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
     "express": "^4.19.2",
-    "pg": "^8.11.5"
+    "peer": "^1.0.2",
+    "pg": "^8.16.0"
   }
 }

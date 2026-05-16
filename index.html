@@ -144,7 +144,8 @@ Your Identity:
 
 <script>
 
-const SERVER = "https://internetphoneapp.onrender.com";
+const SERVER = window.location.origin;
+
 let peer = null;
 let localStream = null;
 let currentCall = null;
@@ -316,6 +317,7 @@ async function startPeer(){
       port:window.location.port || (
         location.protocol === "https:" ? 443 : 80
       ),
+      secure: location.protocol === "https:",
       path:"/peerjs"
     });
 
