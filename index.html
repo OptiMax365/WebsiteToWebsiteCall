@@ -10,7 +10,6 @@ body {
   font-family: Arial;
   background:#040804;
   color:#00ff99;
-  overflow-x:hidden;
 }
 
 .box {
@@ -30,19 +29,12 @@ input, button {
   border:none;
   background:#001a10;
   color:#00ff99;
-  box-shadow:0 0 10px #00ff99;
 }
 
-button:hover {
-  transform:scale(1.05);
-  cursor:pointer;
-}
+button:hover { cursor:pointer; }
 
 #status { animation: blink 1.2s infinite; }
-
-@keyframes blink {
-  50% { opacity:0.4; }
-}
+@keyframes blink { 50% { opacity:0.4; } }
 
 .user {
   border:1px solid #00ff99;
@@ -94,6 +86,7 @@ let call;
 let ws;
 let username;
 let loggedIn = false;
+let wsConnected = false;
 
 function setStatus(t){
   document.getElementById("status").innerText = t;
@@ -101,39 +94,45 @@ function setStatus(t){
 
 /* WS SINGLETON */
 function connectWS(){
-  if (ws && ws.readyState === 1) return;
+  if (wsConnected) return;
 
   ws = new WebSocket(location.origin.replace("http","ws"));
+  wsConnected = true;
 
-  ws.onmessage = (msg)=>{
+  ws.onmessage = (msg) => {
     const d = JSON.parse(msg.data);
 
-    if(d.type === "signup-ok") setStatus("🟡 Registered");
-    if(d.type === "signup-fail") setStatus("❌ Signup failed");
+    if (d.type === "signup-ok") setStatus("🟡 Registered");
+    if (d.type === "signup-fail") setStatus("❌ Username exists");
 
-    if(d.type === "login-ok"){
+    if (d.type === "login-ok") {
       setStatus("🔐 Logged in");
       startPeer(d.username);
     }
 
-    if(d.type === "login-fail"){
+    if (d.type === "login-fail") {
       setStatus("❌ Login failed");
     }
 
-    if(d.type === "user-list"){
+    if (d.type === "user-list") {
       render(d.users);
     }
+  };
+
+  ws.onclose = () => {
+    wsConnected = false;
   };
 }
 
 /* SIGNUP */
 function signup(){
   connectWS();
+  setStatus("🟡 Registering");
 
-  ws.onopen = ()=>{
+  ws.onopen = () => {
     ws.send(JSON.stringify({
       type:"signup",
-      username: document.getElementById("name").value
+      username: document.getElementById("name").value.trim()
     }));
   };
 }
@@ -142,18 +141,23 @@ function signup(){
 async function login(){
   connectWS();
 
+  setStatus("🔐 Logging in");
+
   stream = await navigator.mediaDevices.getUserMedia({audio:true});
 
-  ws.onopen = ()=>{
+  ws.onopen = () => {
     ws.send(JSON.stringify({
       type:"login",
-      username: document.getElementById("name").value
+      username: document.getElementById("name").value.trim()
     }));
   };
 }
 
-/* PEER ONLY AFTER LOGIN */
+/* PEER START ONLY AFTER LOGIN */
 function startPeer(user){
+  if (loggedIn) return;
+  loggedIn = true;
+
   username = user;
 
   const id = username + "_" + Math.random().toString(36).slice(2,7);
@@ -162,8 +166,8 @@ function startPeer(user){
 
   document.getElementById("myId").innerText = id;
 
-  peer.on("open", ()=>{
-    setStatus("🟢 Ready");
+  peer.on("open", () => {
+    setStatus("📞 Ready");
 
     ws.send(JSON.stringify({
       type:"register-peer",
@@ -172,12 +176,12 @@ function startPeer(user){
     }));
   });
 
-  peer.on("call", (c)=>{
+  peer.on("call", c => {
     c.answer(stream);
     call = c;
 
-    c.on("stream", (remote)=>{
-      document.getElementById("audio").srcObject = remote;
+    c.on("stream", r => {
+      document.getElementById("audio").srcObject = r;
       setStatus("📞 In Call");
     });
   });
@@ -185,23 +189,24 @@ function startPeer(user){
 
 /* CALL */
 function callUser(){
-  const id = document.getElementById("callTo").value;
-  if(!peer) return;
+  if (!peer) return;
+
+  const id = document.getElementById("callTo").value.trim();
 
   setStatus("Calling...");
 
   const c = peer.call(id, stream);
   call = c;
 
-  c.on("stream", (remote)=>{
-    document.getElementById("audio").srcObject = remote;
+  c.on("stream", r => {
+    document.getElementById("audio").srcObject = r;
     setStatus("📞 In Call");
   });
 }
 
-/* END */
+/* END CALL */
 function endCall(){
-  if(call) call.close();
+  if (call) call.close();
   document.getElementById("audio").srcObject = null;
   setStatus("Idle");
 }
@@ -211,10 +216,10 @@ function render(users){
   const box = document.getElementById("network");
   box.innerHTML = "";
 
-  users.forEach(u=>{
+  users.forEach(u => {
     const d = document.createElement("div");
     d.className = "user";
-    d.innerText = `${u.username} → ${u.peerId}`;
+    d.innerText = u.username + " → " + u.peerId;
     box.appendChild(d);
   });
 }
