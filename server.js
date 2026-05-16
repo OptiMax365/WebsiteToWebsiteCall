@@ -1,6 +1,6 @@
 import express from "express";
 import http from "http";
-import { PeerServer } from "peer";
+import { ExpressPeerServer } from "peer";
 import { Pool } from "pg";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
@@ -27,12 +27,11 @@ app.use(express.json());
 
 app.use(express.static(__dirname));
 
-const peerServer = PeerServer({
-  port: 0,
-  path: "/"
+const peerServer = ExpressPeerServer(server,{
+  debug:true
 });
 
-app.use("/peerjs", peerServer);
+app.use("/peerjs",peerServer);
 
 async function createTable(){
 
@@ -50,7 +49,7 @@ async function createTable(){
 
   }catch(err){
 
-    console.log("Database Error:", err);
+    console.log("DATABASE ERROR:",err);
 
   }
 
@@ -58,15 +57,42 @@ async function createTable(){
 
 createTable();
 
-app.get("/", (req,res)=>{
-  res.sendFile(path.join(__dirname,"index.html"));
+app.get("/",(req,res)=>{
+
+  res.sendFile(
+    path.join(__dirname,"index.html")
+  );
+
 });
 
-app.post("/signup", async (req,res)=>{
+app.get("/health",(req,res)=>{
+
+  res.json({
+    success:true
+  });
+
+});
+
+app.post("/signup",async(req,res)=>{
 
   try{
 
-    const { username, password } = req.body;
+    const username =
+      req.body.username
+      ?.trim()
+      ?.toLowerCase();
+
+    const password =
+      req.body.password;
+
+    if(!username || !password){
+
+      return res.json({
+        success:false,
+        message:"Missing fields"
+      });
+
+    }
 
     const existing =
       await pool.query(
@@ -78,7 +104,7 @@ app.post("/signup", async (req,res)=>{
 
       return res.json({
         success:false,
-        message:"Username already exists"
+        message:"Username exists"
       });
 
     }
@@ -90,6 +116,8 @@ app.post("/signup", async (req,res)=>{
       "INSERT INTO users(username,password) VALUES($1,$2)",
       [username,hash]
     );
+
+    console.log("NEW USER:",username);
 
     res.json({
       success:true
@@ -108,11 +136,17 @@ app.post("/signup", async (req,res)=>{
 
 });
 
-app.post("/login", async (req,res)=>{
+app.post("/login",async(req,res)=>{
 
   try{
 
-    const { username, password } = req.body;
+    const username =
+      req.body.username
+      ?.trim()
+      ?.toLowerCase();
+
+    const password =
+      req.body.password;
 
     const result =
       await pool.query(
@@ -146,6 +180,8 @@ app.post("/login", async (req,res)=>{
 
     }
 
+    console.log("LOGIN:",username);
+
     res.json({
       success:true,
       username:user.username
@@ -164,10 +200,32 @@ app.post("/login", async (req,res)=>{
 
 });
 
-const PORT = process.env.PORT || 10000;
+peerServer.on("connection",(client)=>{
+
+  console.log(
+    "PEER CONNECTED:",
+    client.getId()
+  );
+
+});
+
+peerServer.on("disconnect",(client)=>{
+
+  console.log(
+    "PEER DISCONNECTED:",
+    client.getId()
+  );
+
+});
+
+const PORT =
+  process.env.PORT || 10000;
 
 server.listen(PORT,()=>{
 
-  console.log("SERVER RUNNING ON PORT",PORT);
+  console.log(
+    "SERVER RUNNING ON PORT",
+    PORT
+  );
 
 });

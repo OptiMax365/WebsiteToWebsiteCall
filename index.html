@@ -82,6 +82,19 @@ button:hover{
   display:none;
 }
 
+#debug{
+  height:220px;
+  overflow-y:auto;
+  background:#000;
+  color:#00ff99;
+  padding:10px;
+  border-radius:10px;
+  font-size:12px;
+  font-family:monospace;
+  border:1px solid #00ff99;
+  white-space:pre-wrap;
+}
+
 </style>
 </head>
 
@@ -138,37 +151,89 @@ Your Identity:
 
 </div>
 
+<div class="box">
+
+<b>LIVE DEBUG CONSOLE</b>
+
+<div id="debug"></div>
+
+</div>
+
 <audio id="remoteAudio" autoplay></audio>
 
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
 <script>
 
-const SERVER = window.location.origin;
+const SERVER =
+  location.hostname === "127.0.0.1" ||
+  location.hostname === "localhost"
+    ? "http://localhost:10000"
+    : window.location.origin;
 
 let peer = null;
 let localStream = null;
 let currentCall = null;
 let loggedIn = false;
 let myUsername = "";
+
+  const savedUser =
+    localStorage.getItem("loggedUser");
+
+  if(savedUser){
+
+    myUsername = savedUser;
+
+    document.getElementById(
+      "myId"
+    ).innerText = myUsername;
+
+  }
+
+
 let incomingCall = null;
 
 let knownUsers =
   JSON.parse(localStorage.getItem("knownUsers") || "[]");
 
+function debug(msg){
+
+  console.log(msg);
+
+  const debugBox =
+    document.getElementById("debug");
+
+  const time =
+    new Date().toLocaleTimeString();
+
+  debugBox.innerHTML +=
+    "[" + time + "] " + msg + "\\n";
+
+  debugBox.scrollTop =
+    debugBox.scrollHeight;
+
+}
+
 function setStatus(text){
-  document.getElementById("status").innerText = text;
+
+  debug("STATUS => " + text);
+
+  document.getElementById("status")
+  .innerText = text;
+
 }
 
 function renderUsers(){
 
-  const network = document.getElementById("network");
+  const network =
+    document.getElementById("network");
 
   network.innerHTML = "";
 
   knownUsers.forEach(user => {
 
-    const div = document.createElement("div");
+    const div =
+      document.createElement("div");
 
     div.className = "user";
 
@@ -181,10 +246,12 @@ function renderUsers(){
 }
 
 function saveUsers(){
+
   localStorage.setItem(
     "knownUsers",
     JSON.stringify(knownUsers)
   );
+
 }
 
 async function signup(){
@@ -199,27 +266,40 @@ async function signup(){
     document.getElementById("password")
     .value;
 
+  debug("Attempting signup...");
+  debug("SERVER = " + SERVER);
+  debug("USERNAME = " + username);
+
   if(!username || !password){
+
     alert("Enter username and password");
+
     return;
+
   }
 
   setStatus("🟡 Registering...");
 
   try{
 
-    const res = await fetch(SERVER + "/signup",{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json"
-      },
-      body:JSON.stringify({
-        username,
-        password
-      })
-    });
+    const res =
+      await fetch(SERVER + "/signup",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          username,
+          password
+        })
+      });
+
+    debug("HTTP STATUS = " + res.status);
 
     const data = await res.json();
+
+    debug("SERVER RESPONSE:");
+    debug(JSON.stringify(data,null,2));
 
     if(data.success){
 
@@ -234,6 +314,9 @@ async function signup(){
   }catch(err){
 
     console.log(err);
+
+    debug("SIGNUP ERROR:");
+    debug(err.toString());
 
     setStatus("❌ Signup failed");
 
@@ -253,33 +336,46 @@ async function login(){
     document.getElementById("password")
     .value;
 
+  debug("Attempting login...");
+  debug("USERNAME = " + username);
+
   if(!username || !password){
+
     alert("Enter username and password");
+
     return;
+
   }
 
   setStatus("🔐 Logging in");
 
   try{
 
-    const res = await fetch(SERVER + "/login",{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json"
-      },
-      body:JSON.stringify({
-        username,
-        password
-      })
-    });
+    const res =
+      await fetch(SERVER + "/login",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          username,
+          password
+        })
+      });
+
+    debug("HTTP STATUS = " + res.status);
 
     const data = await res.json();
+
+    debug("LOGIN RESPONSE:");
+    debug(JSON.stringify(data,null,2));
 
     if(!data.success){
 
       setStatus("❌ " + data.message);
 
       return;
+
     }
 
     setStatus("Authenticating...");
@@ -290,12 +386,17 @@ async function login(){
     .innerText = myUsername;
 
     loggedIn = true;
+    localStorage.setItem(
+      "loggedUser",
+      myUsername
+    );
 
     await startPeer();
 
   }catch(err){
 
-    console.log(err);
+    debug("LOGIN ERROR:");
+    debug(err.toString());
 
     setStatus("❌ Login failed");
 
@@ -303,25 +404,35 @@ async function login(){
 
 }
 
+
 async function startPeer(){
 
   try{
+
+    debug("Requesting microphone access...");
 
     localStream =
       await navigator.mediaDevices.getUserMedia({
         audio:true
       });
 
+    debug("Microphone granted");
+
+
     peer = new Peer(myUsername,{
       host:window.location.hostname,
-      port:window.location.port || (
-        location.protocol === "https:" ? 443 : 80
-      ),
-      secure: location.protocol === "https:",
-      path:"/peerjs"
+      port:window.location.port || 10000,
+      path:"/peerjs",
+      secure: location.protocol === "https:"
     });
 
+
+
+    debug("Starting PeerJS...");
+
     peer.on("open", id => {
+
+      debug("PEER OPENED => " + id);
 
       setStatus("🟢 Logged in");
 
@@ -332,6 +443,8 @@ async function startPeer(){
     });
 
     peer.on("call", call => {
+
+      debug("INCOMING CALL FROM => " + call.peer);
 
       incomingCall = call;
 
@@ -348,7 +461,8 @@ async function startPeer(){
 
     peer.on("error", err => {
 
-      console.log(err);
+      debug("PEER ERROR:");
+      debug(JSON.stringify(err));
 
       setStatus("❌ Peer Error");
 
@@ -356,7 +470,8 @@ async function startPeer(){
 
   }catch(err){
 
-    console.log(err);
+    debug("MIC ERROR:");
+    debug(err.toString());
 
     setStatus("❌ Microphone denied");
 
@@ -368,6 +483,8 @@ function acceptCall(){
 
   if(!incomingCall) return;
 
+  debug("Accepting call...");
+
   incomingCall.answer(localStream);
 
   currentCall = incomingCall;
@@ -375,6 +492,8 @@ function acceptCall(){
   setStatus("📞 Call Connected");
 
   incomingCall.on("stream", remoteStream => {
+
+    debug("Receiving remote stream");
 
     document.getElementById("remoteAudio")
     .srcObject = remoteStream;
@@ -384,23 +503,28 @@ function acceptCall(){
   document.getElementById("incoming")
   .style.display = "none";
 
-  if(!knownUsers.includes(incomingCall.peer)){
-
-    knownUsers.push(incomingCall.peer);
-
-    saveUsers();
-
-    renderUsers();
-
-  }
-
 }
-
 function callUser(){
 
   if(!loggedIn){
 
     alert("Login first");
+
+    return;
+
+  }
+
+  if(!peer){
+
+    setStatus("❌ Peer not connected");
+
+    return;
+
+  }
+
+  if(peer.disconnected){
+
+    setStatus("❌ Peer disconnected");
 
     return;
 
@@ -420,47 +544,65 @@ function callUser(){
 
   }
 
+  if(target === myUsername){
+
+    alert("Cannot call yourself");
+
+    return;
+
+  }
+
+  debug("Calling => " + target);
+
   setStatus("📞 Calling " + target);
 
   const call =
-    peer.call(target, localStream);
+    peer.call(target,localStream);
+
+  if(!call){
+
+    setStatus("❌ User offline");
+
+    return;
+
+  }
 
   currentCall = call;
 
-  call.on("stream", remoteStream => {
+  call.on("stream",remoteStream=>{
 
-    document.getElementById("remoteAudio")
-    .srcObject = remoteStream;
+    debug("Connected to remote audio");
+
+    document.getElementById(
+      "remoteAudio"
+    ).srcObject = remoteStream;
 
     setStatus("📞 In Call");
 
   });
 
-  call.on("close", () => {
+  call.on("close",()=>{
+
+    debug("Call closed");
 
     setStatus("Call Ended");
 
   });
 
-  call.on("error", () => {
+  call.on("error",(err)=>{
+
+    debug("CALL ERROR:");
+    debug(err.toString());
 
     setStatus("❌ Call Failed");
 
   });
 
-  if(!knownUsers.includes(target)){
-
-    knownUsers.push(target);
-
-    saveUsers();
-
-    renderUsers();
-
-  }
-
 }
 
 function endCall(){
+
+  debug("Ending call");
 
   if(currentCall){
 
@@ -476,6 +618,15 @@ function endCall(){
   setStatus("Idle");
 
 }
+
+window.onerror = function(msg,url,line,col,error){
+
+  debug("WINDOW ERROR:");
+  debug(msg);
+
+};
+
+debug("PAGE LOADED");
 
 renderUsers();
 
