@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
+
 <meta charset="UTF-8" />
+
 <title>NEON Voice Mesh</title>
 
 <style>
@@ -68,22 +70,10 @@ button:hover{
 
 #status{
   font-weight:bold;
-  text-shadow:0 0 10px #00ff99;
-}
-
-.user{
-  padding:8px;
-  margin:5px;
-  border:1px solid #00ff99;
-  border-radius:8px;
-}
-
-#incoming{
-  display:none;
 }
 
 #debug{
-  height:220px;
+  height:240px;
   overflow-y:auto;
   background:#000;
   color:#00ff99;
@@ -91,11 +81,11 @@ button:hover{
   border-radius:10px;
   font-size:12px;
   font-family:monospace;
-  border:1px solid #00ff99;
   white-space:pre-wrap;
 }
 
 </style>
+
 </head>
 
 <body>
@@ -103,56 +93,82 @@ button:hover{
 <h2>⚡ NEON VOICE MESH</h2>
 
 <div class="box">
+
 Status:
-<div id="status">Idle</div>
+
+<div id="status">
+Idle
 </div>
+
+</div>
+
+
 
 <div class="box">
 
 <input id="username" placeholder="Username">
-<input id="password" type="password" placeholder="Password">
 
-<button onclick="signup()">Register</button>
-<button onclick="login()">Login</button>
-<button onclick="logout()">Logout</button>
+<input id="password"
+type="password"
+placeholder="Password">
+
+<button onclick="signup()">
+Register
+</button>
+
+<button onclick="login()">
+Login
+</button>
+
+<button onclick="logout()">
+Logout
+</button>
 
 </div>
+
+
 
 <div class="box">
 
 Your Identity:
-<div id="myId">---</div>
+
+<div id="myId">
+---
+</div>
 
 </div>
+
+
 
 <div class="box">
 
-<input id="callTo" placeholder="Username to call">
+<input id="callTo"
+placeholder="Username to call">
 
-<button onclick="callUser()">Call</button>
-<button onclick="endCall()">End Call</button>
+<button onclick="callUser()">
+Call
+</button>
+
+<button onclick="endCall()">
+End Call
+</button>
 
 </div>
 
-<div class="box" id="incoming">
+
+
+<div class="box" id="incoming"
+style="display:none;">
 
 <h3>📞 Incoming Call</h3>
 
 <div id="callerName"></div>
 
-<button onclick="acceptCall()">Receive Call</button>
+<button onclick="acceptCall()">
+Receive Call
+</button>
 
 </div>
-
-<div class="box">
-
-<b>Known Users</b>
-
-<div id="network"></div>
-
-</div>
-
-
 
 
 
@@ -160,9 +176,9 @@ Your Identity:
 
 <b>NETWORK STRENGTH</b>
 
-  <div id="wifiText">
-  Checking...
-  </div>
+<div id="wifiText">
+Checking...
+</div>
 
 <div style="
 height:20px;
@@ -172,22 +188,16 @@ overflow:hidden;
 margin-top:10px;
 ">
 
-  <div id="wifiBar" style="
-  width:100%;
-  height:100%;
-  background:#00ff99;
-  transition:0.5s;
+<div id="wifiBar" style="
+width:100%;
+height:100%;
+background:#00ff99;
+transition:0.5s;
 "></div>
 
 </div>
 
-
-
 </div>
-
-
-
-
 
 
 
@@ -198,6 +208,8 @@ margin-top:10px;
 <div id="debug"></div>
 
 </div>
+
+
 
 <audio id="remoteAudio" autoplay></audio>
 
@@ -211,106 +223,52 @@ const SERVER =
 let peer = null;
 let localStream = null;
 let currentCall = null;
-let loggedIn = false;
-let myUsername = "";
-let onlineUsers = {};
-
-
-
-
-  const savedUser =
-    localStorage.getItem("loggedUser");
-
-  if(savedUser){
-
-    myUsername = savedUser;
-
-    loggedIn = true;
-
-    localStorage.setItem(
-      "accountUsername",
-      myUsername
-    );
-
-    document.getElementById(
-      "myId"
-    ).innerText = myUsername;
-
-    window.addEventListener("load",async()=>{
-
-      debug("RESTORING SESSION => " + myUsername);
-
-      await startPeer();
-
-    });
-
-  }
-
-
-
-
 let incomingCall = null;
 
-let knownUsers =
-  JSON.parse(localStorage.getItem("knownUsers") || "[]");
+let loggedIn = false;
+let myUsername = "";
+
+let reconnecting = false;
+
+
 
 function debug(msg){
 
   console.log(msg);
 
-  const debugBox =
+  const box =
     document.getElementById("debug");
 
   const time =
     new Date().toLocaleTimeString();
 
-  debugBox.innerHTML +=
-    "[" + time + "] " + msg + "\\n";
+  box.innerHTML +=
+    "[" + time + "] " + msg + "\n";
 
-  debugBox.scrollTop =
-    debugBox.scrollHeight;
+  box.scrollTop =
+    box.scrollHeight;
 
 }
+
+
 
 function setStatus(text){
 
   debug("STATUS => " + text);
 
-  document.getElementById("status")
-  .innerText = text;
+  document.getElementById(
+    "status"
+  ).innerText = text;
 
 }
 
-function renderUsers(){
 
-  const network =
-    document.getElementById("network");
 
-  network.innerHTML = "";
-
-  knownUsers.forEach(user => {
-
-    const div =
-      document.createElement("div");
-
-    div.className = "user";
-
-    div.innerText = user;
-
-    network.appendChild(div);
-
-  });
-
-}
-
-function saveUsers(){
-
-  localStorage.setItem(
-    "knownUsers",
-    JSON.stringify(knownUsers)
-  );
-
-}
+/*
+========================================
+SIGNUP
+========================================
+*/
 
 async function signup(){
 
@@ -324,13 +282,9 @@ async function signup(){
     document.getElementById("password")
     .value;
 
-  debug("Attempting signup...");
-  debug("SERVER = " + SERVER);
-  debug("USERNAME = " + username);
-
   if(!username || !password){
 
-    alert("Enter username and password");
+    alert("Enter username/password");
 
     return;
 
@@ -352,12 +306,8 @@ async function signup(){
         })
       });
 
-    debug("HTTP STATUS = " + res.status);
-
-    const data = await res.json();
-
-    debug("SERVER RESPONSE:");
-    debug(JSON.stringify(data,null,2));
+    const data =
+      await res.json();
 
     if(data.success){
 
@@ -371,9 +321,6 @@ async function signup(){
 
   }catch(err){
 
-    console.log(err);
-
-    debug("SIGNUP ERROR:");
     debug(err.toString());
 
     setStatus("❌ Signup failed");
@@ -382,7 +329,23 @@ async function signup(){
 
 }
 
+
+
+/*
+========================================
+LOGIN
+========================================
+*/
+
 async function login(){
+
+  if(peer){
+
+    debug("Already connected");
+
+    return;
+
+  }
 
   const username =
     document.getElementById("username")
@@ -394,12 +357,9 @@ async function login(){
     document.getElementById("password")
     .value;
 
-  debug("Attempting login...");
-  debug("USERNAME = " + username);
-
   if(!username || !password){
 
-    alert("Enter username and password");
+    alert("Enter username/password");
 
     return;
 
@@ -421,12 +381,8 @@ async function login(){
         })
       });
 
-    debug("HTTP STATUS = " + res.status);
-
-    const data = await res.json();
-
-    debug("LOGIN RESPONSE:");
-    debug(JSON.stringify(data,null,2));
+    const data =
+      await res.json();
 
     if(!data.success){
 
@@ -436,24 +392,25 @@ async function login(){
 
     }
 
-    setStatus("Authenticating...");
-
-    myUsername = data.username;
-
-    document.getElementById("myId")
-    .innerText = myUsername;
+    myUsername =
+      data.username;
 
     loggedIn = true;
+
     localStorage.setItem(
       "loggedUser",
       myUsername
     );
 
+    document.getElementById(
+      "myId"
+    ).innerText =
+      myUsername;
+
     await startPeer();
 
   }catch(err){
 
-    debug("LOGIN ERROR:");
     debug(err.toString());
 
     setStatus("❌ Login failed");
@@ -464,163 +421,29 @@ async function login(){
 
 
 
-
-async function monitorConnection(){
-
-  try{
-
-    const start = performance.now();
-
-    await fetch(
-      SERVER + "/health?t=" + Date.now(),
-      {
-        cache:"no-store"
-      }
-    );
-
-    const latency =
-      performance.now() - start;
-
-    let strength = 100;
-
-    if(latency > 1000){
-
-      strength = 20;
-
-    }else if(latency > 700){
-
-      strength = 40;
-
-    }else if(latency > 400){
-
-      strength = 60;
-
-    }else if(latency > 200){
-
-      strength = 80;
-
-    }
-
-    const bar =
-      document.getElementById("wifiBar");
-
-    const text =
-      document.getElementById("wifiText");
-
-    bar.style.width =
-      strength + "%";
-
-    if(strength > 80){
-
-      text.innerText =
-        "🟢 Excellent Connection";
-
-    }else if(strength > 60){
-
-      text.innerText =
-        "🟡 Good Connection";
-
-    }else if(strength > 40){
-
-      text.innerText =
-        "🟠 Weak Connection";
-
-    }else{
-
-      text.innerText =
-        "🔴 Poor Connection";
-
-    }
-
-  }catch(err){
-
-    document.getElementById(
-      "wifiBar"
-    ).style.width = "5%";
-
-    document.getElementById(
-      "wifiText"
-    ).innerText =
-      "❌ Offline";
-
-    debug("NETWORK LOST");
-
-    if(peer){
-
-      try{
-
-        peer.reconnect();
-
-      }catch(e){}
-
-    }
-
-  }
-
-}
-
-setInterval(
-  monitorConnection,
-  4000
-);
-
-monitorConnection();
-
-
-
-
-function logout(){
-
-  debug("Logging out");
-
-  localStorage.removeItem(
-    "loggedUser"
-  );
-
-  loggedIn = false;
-
-  myUsername = "";
-
-  if(currentCall){
-
-    currentCall.close();
-
-  }
-
-  if(peer){
-
-    try{
-      peer.destroy();
-    }catch(e){}
-
-  }
-
-  peer = null;
-
-  document.getElementById(
-    "myId"
-  ).innerText = "---";
-
-  setStatus("Logged out");
-
-}
-
-
-
+/*
+========================================
+START PEER
+========================================
+*/
 
 async function startPeer(){
 
-  if(peer){
+  if(reconnecting){
 
-    try{
-      peer.destroy();
-    }catch(e){}
-
-    peer = null;
+    return;
 
   }
 
+  reconnecting = true;
+
   try{
+
+    if(peer){
+
+      peer.destroy();
+      peer = null;
+    }
 
     debug("Requesting microphone access...");
 
@@ -635,9 +458,7 @@ async function startPeer(){
 
     debug("Microphone granted");
 
-    const peerId = myUsername;
-
-    peer = new Peer(peerId,{
+    peer = new Peer(myUsername,{
       host:"websitespeaks.onrender.com",
       secure:true,
       port:443,
@@ -646,21 +467,13 @@ async function startPeer(){
 
     debug("Starting PeerJS...");
 
-    peer.on("open",async(id)=>{
+
+
+    peer.on("open", async(id)=>{
+
+      reconnecting = false;
 
       debug("PEER OPENED => " + id);
-
-      loggedIn = true;
-
-      localStorage.setItem(
-        "loggedUser",
-        myUsername
-      );
-
-      localStorage.setItem(
-        "peerId",
-        id
-      );
 
       await fetch(
         SERVER + "/active",
@@ -684,13 +497,7 @@ async function startPeer(){
 
       },1000);
 
-      updateOnlineStatus();
-
     });
-
-
-
-
 
 
 
@@ -698,74 +505,55 @@ async function startPeer(){
 
       debug("PEER DISCONNECTED");
 
-      setStatus("⚠ Weak connection reconnecting...");
-
-      setTimeout(()=>{
-
-        try{
-
-          peer.reconnect();
-
-        }catch(err){
-
-          debug("Reconnect failed");
-
-          startPeer();
-
-        }
-
-      },3000);
+      setStatus("⚠ Reconnecting...");
 
     });
+
+
 
     peer.on("close",()=>{
 
       debug("PEER CLOSED");
 
-      setStatus("⚠ Connection closed");
-
     });
 
-    peer.on("error",err=>{
 
-      debug("PEER ERROR:");
+
+    peer.on("error",(err)=>{
+
+      reconnecting = false;
+
+      debug("PEER ERROR");
       debug(JSON.stringify(err));
 
       if(
         err.type === "network" ||
-        err.type === "server-error" ||
-        err.type === "socket-error"
+        err.type === "socket-error" ||
+        err.type === "server-error"
       ){
 
-        setStatus("⚠ Weak internet reconnecting...");
+        setStatus(
+          "⚠ Weak internet reconnecting..."
+        );
 
         setTimeout(()=>{
 
           startPeer();
 
-        },4000);
+        },3000);
 
       }
-
-
-
-      if(err.type === "unavailable-id"){
-
-        debug("USERNAME ALREADY ACTIVE");
-
-        setStatus("⚠ Already logged in elsewhere");
-
-        return;
-
-      }
-
-
 
     });
 
-    peer.on("call",call=>{
 
-      debug("INCOMING CALL FROM => " + call.peer);
+
+    peer.on("call",(call)=>{
+
+      debug(
+        "INCOMING CALL FROM => " +
+        call.peer
+      );
 
       incomingCall = call;
 
@@ -776,7 +564,8 @@ async function startPeer(){
       document.getElementById(
         "callerName"
       ).innerText =
-        "📞 Ringing from: " + call.peer;
+        "📞 Ringing from: " +
+        call.peer;
 
       setStatus("📞 Incoming Call");
 
@@ -784,44 +573,11 @@ async function startPeer(){
 
   }catch(err){
 
-    debug("MIC ERROR:");
+    reconnecting = false;
+
     debug(err.toString());
 
-    setStatus("❌ Microphone denied");
-
-  }
-
-
-
-}
-
-
-
-async function updateOnlineStatus(){
-
-  try{
-
-    await fetch(
-      SERVER + "/health"
-    );
-
-    document.getElementById(
-      "wifiText"
-    ).innerText = "Strong";
-
-    document.getElementById(
-      "wifiBar"
-    ).style.width = "100%";
-
-  }catch(err){
-
-    document.getElementById(
-      "wifiText"
-    ).innerText = "Weak";
-
-    document.getElementById(
-      "wifiBar"
-    ).style.width = "30%";
+    setStatus("❌ Failed starting peer");
 
   }
 
@@ -829,34 +585,11 @@ async function updateOnlineStatus(){
 
 
 
-function acceptCall(){
-
-  if(!incomingCall) return;
-
-  debug("Accepting call...");
-
-  incomingCall.answer(localStream);
-
-  currentCall = incomingCall;
-
-  setStatus("📞 Call Connected");
-
-  incomingCall.on("stream", remoteStream => {
-
-    debug("Receiving remote stream");
-
-    document.getElementById("remoteAudio")
-    .srcObject = remoteStream;
-
-  });
-
-  document.getElementById("incoming")
-  .style.display = "none";
-
-}
-
-
-
+/*
+========================================
+CALL USER
+========================================
+*/
 
 async function callUser(){
 
@@ -890,8 +623,6 @@ async function callUser(){
 
   }
 
-  debug("LOOKING UP USER => " + username);
-
   try{
 
     const res =
@@ -913,43 +644,38 @@ async function callUser(){
     }
 
     debug(
-      "FOUND PEER => " +
+      "CALLING => " +
       data.peerId
     );
 
-    const call =
+    currentCall =
       peer.call(
         data.peerId,
         localStream
       );
 
-    currentCall = call;
+    currentCall.on(
+      "stream",
+      remoteStream=>{
 
-    setStatus(
-      "📞 Calling " + username
+        document.getElementById(
+          "remoteAudio"
+        ).srcObject =
+          remoteStream;
+
+        setStatus("📞 In Call");
+
+      }
     );
 
-    call.on("stream",stream=>{
-
-      debug("CALL CONNECTED");
-
-      document.getElementById(
-        "remoteAudio"
-      ).srcObject = stream;
-
-      setStatus("📞 In Call");
-
-    });
-
-    call.on("close",()=>{
+    currentCall.on("close",()=>{
 
       setStatus("Call ended");
 
     });
 
-    call.on("error",(err)=>{
+    currentCall.on("error",(err)=>{
 
-      debug("CALL ERROR");
       debug(err.toString());
 
       setStatus("❌ Call failed");
@@ -958,7 +684,6 @@ async function callUser(){
 
   }catch(err){
 
-    debug("CALL FAILED");
     debug(err.toString());
 
     setStatus("❌ Connection error");
@@ -967,9 +692,51 @@ async function callUser(){
 
 }
 
-function endCall(){
 
-  debug("Ending call");
+
+/*
+========================================
+ACCEPT CALL
+========================================
+*/
+
+function acceptCall(){
+
+  if(!incomingCall){
+
+    return;
+
+  }
+
+  incomingCall.answer(localStream);
+
+  currentCall = incomingCall;
+
+  incomingCall.on("stream",stream=>{
+
+    document.getElementById(
+      "remoteAudio"
+    ).srcObject = stream;
+
+    setStatus("📞 Call Connected");
+
+  });
+
+  document.getElementById(
+    "incoming"
+  ).style.display = "none";
+
+}
+
+
+
+/*
+========================================
+END CALL
+========================================
+*/
+
+function endCall(){
 
   if(currentCall){
 
@@ -979,23 +746,205 @@ function endCall(){
 
   currentCall = null;
 
-  document.getElementById("remoteAudio")
-  .srcObject = null;
+  document.getElementById(
+    "remoteAudio"
+  ).srcObject = null;
 
   setStatus("Idle");
 
 }
 
-window.onerror = function(msg,url,line,col,error){
 
-  debug("WINDOW ERROR:");
-  debug(msg);
+
+/*
+========================================
+LOGOUT
+========================================
+*/
+
+function logout(){
+
+  localStorage.removeItem(
+    "loggedUser"
+  );
+
+  loggedIn = false;
+
+  myUsername = "";
+
+  if(currentCall){
+
+    currentCall.close();
+
+  }
+
+  if(peer){
+
+    peer.destroy();
+
+  }
+
+  peer = null;
+
+  document.getElementById(
+    "myId"
+  ).innerText = "---";
+
+  setStatus("Logged out");
+
+}
+
+
+
+/*
+========================================
+NETWORK MONITOR
+========================================
+*/
+
+async function monitorConnection(){
+
+  try{
+
+    const start =
+      performance.now();
+
+    await fetch(
+      SERVER +
+      "/health?t=" +
+      Date.now(),
+      {
+        cache:"no-store"
+      }
+    );
+
+    const latency =
+      performance.now() - start;
+
+    let strength = 100;
+
+    if(latency > 1000){
+
+      strength = 20;
+
+    }else if(latency > 700){
+
+      strength = 40;
+
+    }else if(latency > 400){
+
+      strength = 60;
+
+    }else if(latency > 200){
+
+      strength = 80;
+
+    }
+
+    document.getElementById(
+      "wifiBar"
+    ).style.width =
+      strength + "%";
+
+    if(strength > 80){
+
+      document.getElementById(
+        "wifiText"
+      ).innerText =
+        "🟢 Excellent Connection";
+
+    }else if(strength > 60){
+
+      document.getElementById(
+        "wifiText"
+      ).innerText =
+        "🟡 Good Connection";
+
+    }else if(strength > 40){
+
+      document.getElementById(
+        "wifiText"
+      ).innerText =
+        "🟠 Weak Connection";
+
+    }else{
+
+      document.getElementById(
+        "wifiText"
+      ).innerText =
+        "🔴 Poor Connection";
+
+    }
+
+  }catch(err){
+
+    document.getElementById(
+      "wifiBar"
+    ).style.width = "5%";
+
+    document.getElementById(
+      "wifiText"
+    ).innerText =
+      "❌ Offline";
+
+  }
+
+}
+
+setInterval(
+  monitorConnection,
+  4000
+);
+
+monitorConnection();
+
+
+
+/*
+========================================
+RESTORE SESSION
+========================================
+*/
+
+window.onload = async()=>{
+
+  debug("PAGE LOADED");
+
+  const saved =
+    localStorage.getItem(
+      "loggedUser"
+    );
+
+  if(saved){
+
+    myUsername = saved;
+
+    loggedIn = true;
+
+    document.getElementById(
+      "myId"
+    ).innerText =
+      myUsername;
+
+    debug(
+      "RESTORING SESSION => " +
+      myUsername
+    );
+
+    await startPeer();
+
+  }
 
 };
 
 
 
-renderUsers();
+window.onerror = function(msg){
+
+  debug("WINDOW ERROR:");
+  debug(msg);
+
+};
 
 </script>
 

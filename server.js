@@ -17,10 +17,12 @@ const app = express();
 
 const server = http.createServer(app);
 
+const activeUsers = {};
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl:{
-    rejectUnauthorized:false
+  ssl: {
+    rejectUnauthorized: false
   }
 });
 
@@ -32,41 +34,40 @@ app.use(express.static(__dirname));
 
 
 
-const peerServer = ExpressPeerServer(server,{
-  debug:true,
-  path:"/"
+/*
+========================================
+PEER SERVER
+========================================
+*/
+
+const peerServer = ExpressPeerServer(server, {
+  debug: true,
+  path: "/"
 });
 
-app.use("/peerjs",peerServer);
+app.use("/peerjs", peerServer);
 
 
 
-const activeUsers = {};
+peerServer.on("connection", client => {
 
+  const id = client.getId();
 
-
-peerServer.on("connection",(client)=>{
-
-  console.log(
-    "PEER CONNECTED:",
-    client.getId()
-  );
+  console.log("PEER CONNECTED:", id);
 
 });
 
-peerServer.on("disconnect",(client)=>{
 
-  console.log(
-    "PEER DISCONNECTED:",
-    client.getId()
-  );
 
-  for(const username in activeUsers){
+peerServer.on("disconnect", client => {
 
-    if(
-      activeUsers[username] ===
-      client.getId()
-    ){
+  const id = client.getId();
+
+  console.log("PEER DISCONNECTED:", id);
+
+  for (const username in activeUsers) {
+
+    if (activeUsers[username] === id) {
 
       delete activeUsers[username];
 
@@ -83,9 +84,15 @@ peerServer.on("disconnect",(client)=>{
 
 
 
-async function createTable(){
+/*
+========================================
+DATABASE
+========================================
+*/
 
-  try{
+async function createTable() {
+
+  try {
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users(
@@ -97,12 +104,9 @@ async function createTable(){
 
     console.log("USERS TABLE READY");
 
-  }catch(err){
+  } catch (err) {
 
-    console.log(
-      "DATABASE ERROR:",
-      err
-    );
+    console.log("DATABASE ERROR:", err);
 
   }
 
@@ -112,38 +116,60 @@ createTable();
 
 
 
-app.get("/",(req,res)=>{
+/*
+========================================
+ROUTES
+========================================
+*/
+
+app.get("/", (req, res) => {
 
   res.sendFile(
-    path.join(__dirname,"index.html")
+    path.join(__dirname, "index.html")
   );
 
 });
 
 
 
-app.get("/health",(req,res)=>{
+app.get("/health", (req, res) => {
 
   res.json({
-    success:true
+    success: true,
+    onlineUsers: Object.keys(activeUsers).length
   });
 
 });
 
 
 
-app.post("/active",(req,res)=>{
+/*
+========================================
+ACTIVE USERS
+========================================
+*/
 
-  const username =
-    req.body.username;
+app.post("/active", (req, res) => {
 
-  const peerId =
-    req.body.peerId;
+  try {
 
-  if(username && peerId){
+    const username =
+      req.body.username
+      ?.trim()
+      ?.toLowerCase();
 
-    activeUsers[username] =
-      peerId;
+    const peerId =
+      req.body.peerId;
+
+    if (!username || !peerId) {
+
+      return res.json({
+        success: false
+      });
+
+    }
+
+    activeUsers[username] = peerId;
 
     console.log(
       "ACTIVE USER:",
@@ -151,20 +177,29 @@ app.post("/active",(req,res)=>{
       peerId
     );
 
-  }
+    res.json({
+      success: true
+    });
 
-  res.json({
-    success:true
-  });
+  } catch (err) {
+
+    console.log(err);
+
+    res.json({
+      success: false
+    });
+
+  }
 
 });
 
 
 
-app.get("/active/:username",(req,res)=>{
+app.get("/active/:username", (req, res) => {
 
   const username =
     req.params.username
+    ?.trim()
     ?.toLowerCase();
 
   res.json({
@@ -176,9 +211,15 @@ app.get("/active/:username",(req,res)=>{
 
 
 
-app.post("/signup",async(req,res)=>{
+/*
+========================================
+SIGNUP
+========================================
+*/
 
-  try{
+app.post("/signup", async (req, res) => {
+
+  try {
 
     const username =
       req.body.username
@@ -188,11 +229,11 @@ app.post("/signup",async(req,res)=>{
     const password =
       req.body.password;
 
-    if(!username || !password){
+    if (!username || !password) {
 
       return res.json({
-        success:false,
-        message:"Missing fields"
+        success: false,
+        message: "Missing fields"
       });
 
     }
@@ -203,42 +244,36 @@ app.post("/signup",async(req,res)=>{
         [username]
       );
 
-    if(existing.rows.length > 0){
+    if (existing.rows.length > 0) {
 
       return res.json({
-        success:false,
-        message:"Username exists"
+        success: false,
+        message: "Username already exists"
       });
 
     }
 
     const hash =
-      await bcrypt.hash(
-        password,
-        10
-      );
+      await bcrypt.hash(password, 10);
 
     await pool.query(
       "INSERT INTO users(username,password) VALUES($1,$2)",
-      [username,hash]
+      [username, hash]
     );
 
-    console.log(
-      "NEW USER:",
-      username
-    );
+    console.log("NEW USER:", username);
 
     res.json({
-      success:true
+      success: true
     });
 
-  }catch(err){
+  } catch (err) {
 
     console.log(err);
 
     res.json({
-      success:false,
-      message:"Signup failed"
+      success: false,
+      message: "Signup failed"
     });
 
   }
@@ -247,9 +282,15 @@ app.post("/signup",async(req,res)=>{
 
 
 
-app.post("/login",async(req,res)=>{
+/*
+========================================
+LOGIN
+========================================
+*/
 
-  try{
+app.post("/login", async (req, res) => {
+
+  try {
 
     const username =
       req.body.username
@@ -259,17 +300,26 @@ app.post("/login",async(req,res)=>{
     const password =
       req.body.password;
 
+    if (!username || !password) {
+
+      return res.json({
+        success: false,
+        message: "Missing login fields"
+      });
+
+    }
+
     const result =
       await pool.query(
         "SELECT * FROM users WHERE username=$1",
         [username]
       );
 
-    if(result.rows.length === 0){
+    if (result.rows.length === 0) {
 
       return res.json({
-        success:false,
-        message:"User not found"
+        success: false,
+        message: "User not found"
       });
 
     }
@@ -283,32 +333,29 @@ app.post("/login",async(req,res)=>{
         user.password
       );
 
-    if(!valid){
+    if (!valid) {
 
       return res.json({
-        success:false,
-        message:"Wrong password"
+        success: false,
+        message: "Wrong password"
       });
 
     }
 
-    console.log(
-      "LOGIN:",
-      username
-    );
+    console.log("LOGIN:", username);
 
     res.json({
-      success:true,
-      username:user.username
+      success: true,
+      username: user.username
     });
 
-  }catch(err){
+  } catch (err) {
 
     console.log(err);
 
     res.json({
-      success:false,
-      message:"Login failed"
+      success: false,
+      message: "Login failed"
     });
 
   }
@@ -317,10 +364,16 @@ app.post("/login",async(req,res)=>{
 
 
 
+/*
+========================================
+START SERVER
+========================================
+*/
+
 const PORT =
   process.env.PORT || 10000;
 
-server.listen(PORT,()=>{
+server.listen(PORT, () => {
 
   console.log(
     "SERVER RUNNING ON PORT",
