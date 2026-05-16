@@ -4,139 +4,138 @@ const WebSocket = require("ws");
 const path = require("path");
 
 const app = express();
-
 const server = http.createServer(app);
-
-const wss = new WebSocket.Server({
-    server
-});
+const wss = new WebSocket.Server({ server });
 
 /* -------------------------- */
-/* ONLINE USERS */
+/* ONLINE USERS (BY USERNAME) */
 /* -------------------------- */
 
 const users = new Map();
 
 /*
 users = {
-   peerId : {
-      peerId,
-      username
-   }
+  username: {
+    username,
+    peerId,
+    lastSeen
+  }
 }
 */
 
 /* -------------------------- */
-/* SERVE FRONTEND */
+/* FRONTEND */
 /* -------------------------- */
 
-app.use(
-    express.static(
-        path.join(__dirname, "public")
-    )
-);
+app.use(express.static(path.join(__dirname, "public")));
 
 /* -------------------------- */
-/* BROADCAST USERS */
+/* BROADCAST */
 /* -------------------------- */
 
 function broadcastUsers(){
 
-    const list =
-        Array.from(users.values());
+  const list = Array.from(users.values());
 
-    const payload =
-        JSON.stringify({
-            type:"users",
-            users:list
-        });
+  const payload = JSON.stringify({
+    type: "users",
+    users: list
+  });
 
-    wss.clients.forEach(client => {
-
-        if(client.readyState === WebSocket.OPEN){
-
-            client.send(payload);
-
-        }
-
-    });
+  wss.clients.forEach(client => {
+    if(client.readyState === WebSocket.OPEN){
+      client.send(payload);
+    }
+  });
 
 }
 
 /* -------------------------- */
-/* SOCKET CONNECTION */
+/* SOCKETS */
 /* -------------------------- */
 
 wss.on("connection", (ws) => {
 
-    let currentPeerId = null;
+  let currentUser = null;
 
-    ws.on("message", (msg) => {
+  ws.on("message", (msg) => {
 
-        try{
+    try{
 
-            const data =
-                JSON.parse(msg);
+      const data = JSON.parse(msg);
 
-            /* USER JOIN */
+      /* LOGIN / JOIN */
 
-            if(data.type === "join"){
+      if(data.type === "login"){
 
-                currentPeerId =
-                    data.peerId;
+        currentUser = data.username;
 
-                users.set(currentPeerId, {
+        users.set(currentUser, {
+          username: data.username,
+          peerId: data.peerId,
+          lastSeen: Date.now()
+        });
 
-                    peerId:data.peerId,
+        broadcastUsers();
+      }
 
-                    username:data.username
+      /* HEARTBEAT (keep alive) */
+      if(data.type === "ping" && currentUser){
 
-                });
+        const u = users.get(currentUser);
 
-                console.log(
-                    data.username +
-                    " joined"
-                );
-
-                broadcastUsers();
-
-            }
-
-        }catch(err){
-
-            console.log(err);
-
+        if(u){
+          u.lastSeen = Date.now();
+          users.set(currentUser, u);
         }
 
-    });
+      }
 
-    /* USER DISCONNECT */
+    }catch(e){
+      console.log(e);
+    }
 
-    ws.on("close", ()=>{
+  });
 
-        if(currentPeerId){
+  ws.on("close", ()=>{
 
-            users.delete(currentPeerId);
+    if(currentUser){
+      users.delete(currentUser);
+      broadcastUsers();
+    }
 
-            broadcastUsers();
-
-        }
-
-    });
+  });
 
 });
 
 /* -------------------------- */
-/* START SERVER */
+/* CLEAN DEAD USERS */
 /* -------------------------- */
 
-const PORT =
-    process.env.PORT || 3000;
+setInterval(()=>{
+
+  const now = Date.now();
+
+  for(const [name, user] of users.entries()){
+
+    if(now - user.lastSeen > 10000){
+      users.delete(name);
+    }
+
+  }
+
+  broadcastUsers();
+
+}, 5000);
+
+/* -------------------------- */
+/* START */
+/* -------------------------- */
+
+const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, ()=>{
 
-    console.log(
-        "Server running on port " + PORT
-    );
+  console.log("Server running on " + PORT);
 
 });
