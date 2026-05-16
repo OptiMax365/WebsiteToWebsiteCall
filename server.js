@@ -3,24 +3,34 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import pkg from "pg";
+import dotenv from "dotenv";
+
+dotenv.config(); // Load environment variables
 
 const { Pool } = pkg;
 const app = express();
+
+// PORT from Render or fallback to 3000
 const PORT = process.env.PORT || 3000;
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// DATABASE CONFIGURATION
-// Use DATABASE_URL environment variable (Render provides it)
+// DATABASE CONNECTION
+if (!process.env.DATABASE_URL) {
+    console.error("❌ DATABASE_URL is not set! Please set it in environment variables.");
+    process.exit(1); // Stop server if no database is provided
+}
+
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false // Required for Render
+        rejectUnauthorized: true // Render PostgreSQL requires SSL
     }
 });
 
-// CREATE USERS TABLE IF NOT EXISTS
+// CREATE USERS TABLE IF IT DOESN'T EXIST
 async function startDatabase() {
     try {
         await pool.query(`
@@ -39,12 +49,14 @@ async function startDatabase() {
 
 startDatabase();
 
-// ROOT ENDPOINT
+// ================== ROUTES ==================
+
+// Root route
 app.get("/", (req, res) => {
     res.send("VOICE MESH SERVER RUNNING");
 });
 
-// SIGNUP ENDPOINT
+// SIGNUP
 app.post("/signup", async (req, res) => {
     try {
         let { username, password } = req.body;
@@ -55,12 +67,16 @@ app.post("/signup", async (req, res) => {
 
         username = username.toLowerCase().trim();
 
+        // Check if username exists
         const check = await pool.query("SELECT * FROM users WHERE username=$1", [username]);
         if (check.rows.length > 0) {
             return res.status(400).json({ error: "Username already exists" });
         }
 
+        // Hash password
         const hashed = await bcrypt.hash(password, 10);
+
+        // Insert user
         await pool.query("INSERT INTO users(username,password) VALUES($1,$2)", [username, hashed]);
 
         res.json({ success: true, message: "User registered" });
@@ -70,7 +86,7 @@ app.post("/signup", async (req, res) => {
     }
 });
 
-// LOGIN ENDPOINT
+// LOGIN
 app.post("/login", async (req, res) => {
     try {
         let { username, password } = req.body;
@@ -81,14 +97,16 @@ app.post("/login", async (req, res) => {
 
         username = username.toLowerCase().trim();
 
+        // Find user
         const result = await pool.query("SELECT * FROM users WHERE username=$1", [username]);
         if (result.rows.length === 0) {
             return res.status(400).json({ error: "Invalid username" });
         }
 
         const user = result.rows[0];
-        const valid = await bcrypt.compare(password, user.password);
 
+        // Compare password
+        const valid = await bcrypt.compare(password, user.password);
         if (!valid) {
             return res.status(400).json({ error: "Invalid password" });
         }
@@ -100,7 +118,7 @@ app.post("/login", async (req, res) => {
     }
 });
 
-// START SERVER
+// ================== START SERVER ==================
 app.listen(PORT, () => {
     console.log(`✅ SERVER RUNNING ON PORT ${PORT}`);
 });
