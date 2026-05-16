@@ -5,7 +5,6 @@
 <title>NEON P2P VOICE NETWORK</title>
 
 <style>
-
 body{
     margin:0;
     background:#020702;
@@ -13,8 +12,6 @@ body{
     font-family:Arial;
     overflow-x:hidden;
 }
-
-/* BACKGROUND */
 
 body::before{
     content:"";
@@ -118,7 +115,6 @@ button:hover{
 @keyframes dot{
     50%{opacity:0.2;}
 }
-
 </style>
 </head>
 
@@ -132,28 +128,18 @@ button:hover{
 </div>
 
 <div class="box">
-
     <input id="username" placeholder="Enter Username">
-
-    <button onclick="goOnline()">
-        GO ONLINE
-    </button>
-
+    <button onclick="goOnline()">GO ONLINE</button>
 </div>
 
 <div class="box">
-
     YOUR NAME:
     <div id="myName">---</div>
-
 </div>
 
 <div class="box">
-
     <b>🌐 LIVE PEERS</b>
-
     <div id="discover"></div>
-
 </div>
 
 <audio id="audio" autoplay></audio>
@@ -162,32 +148,29 @@ button:hover{
 
 <script>
 
-/* -------------------------------- */
-/* GLOBALS */
-/* -------------------------------- */
+/* ----------------------------- */
+/* GLOBAL STATE */
+/* ----------------------------- */
 
 let peer;
 let myName;
 let stream;
 let currentCall;
 
-const peers = {};
+/* FIXED: proper registry */
+const peers = new Map();
 
-const lobbySpaces = [
-    "global-space-1",
-    "global-space-2",
-    "global-space-3",
-    "neon-world",
-    "voice-network"
-];
+/* ----------------------------- */
+/* STATUS */
+/* ----------------------------- */
 
 function setStatus(t){
     document.getElementById("status").innerText = t;
 }
 
-/* -------------------------------- */
-/* ONLINE */
-/* -------------------------------- */
+/* ----------------------------- */
+/* GO ONLINE */
+/* ----------------------------- */
 
 async function goOnline(){
 
@@ -203,176 +186,98 @@ async function goOnline(){
         audio:true
     });
 
-    /* deterministic id */
-
     const myPeerId =
-        "neon_" +
-        myName +
-        "_" +
-        Math.floor(Math.random()*9999);
+        "neon_" + myName + "_" + Math.floor(Math.random()*9999);
 
     peer = new Peer(myPeerId);
 
     peer.on("open",(id)=>{
-
         setStatus("ONLINE P2P");
-
-        startLobbyDiscovery();
-
+        console.log("My ID:", id);
     });
 
     /* incoming calls */
-
     peer.on("call",(call)=>{
 
         setStatus("INCOMING CALL");
 
         call.answer(stream);
-
         currentCall = call;
 
         call.on("stream",(remote)=>{
-
             document.getElementById("audio").srcObject = remote;
-
             setStatus("CONNECTED");
-
         });
-
     });
 
-    /* incoming peer connections */
-
+    /* incoming data connections */
     peer.on("connection",(conn)=>{
 
         conn.on("data",(data)=>{
 
             if(data.type === "presence"){
 
-                peers[data.peerId] = data;
-
+                peers.set(data.peerId, data);
                 renderPeers();
 
             }
-
         });
-
     });
 
+    /* start broadcasting presence */
+    startBroadcast();
 }
 
-/* -------------------------------- */
-/* DISCOVERY SYSTEM */
-/* -------------------------------- */
+/* ----------------------------- */
+/* BROADCAST SYSTEM */
+/* ----------------------------- */
 
-function startLobbyDiscovery(){
+function startBroadcast(){
 
     setInterval(()=>{
 
-        lobbySpaces.forEach(space=>{
+        if(!peer) return;
 
-            tryConnect(
-                "neon_" + space
-            );
+        broadcastPresence();
 
-        });
-
-    },2000);
-
-    /* broadcast self */
-
-    setInterval(broadcastPresence,1500);
-
+    },1500);
 }
 
-/* -------------------------------- */
-/* CONNECT */
-/* -------------------------------- */
-
-function tryConnect(id){
-
-    if(!peer) return;
-
-    if(id === peer.id) return;
-
-    if(peer.connections[id]) return;
-
-    try{
-
-        const conn = peer.connect(id);
-
-        conn.on("open",()=>{
-
-            conn.send({
-                type:"presence",
-                username:myName,
-                peerId:peer.id
-            });
-
-        });
-
-        conn.on("data",(data)=>{
-
-            if(data.type === "presence"){
-
-                peers[data.peerId] = data;
-
-                renderPeers();
-
-            }
-
-        });
-
-    }catch(e){}
-
-}
-
-/* -------------------------------- */
-/* BROADCAST */
-/* -------------------------------- */
+/* ----------------------------- */
+/* SEND PRESENCE */
+/* ----------------------------- */
 
 function broadcastPresence(){
 
-    if(!peer) return;
+    const data = {
+        type:"presence",
+        username:myName,
+        peerId:peer.id
+    };
 
-    Object.keys(peer.connections).forEach(id=>{
-
-        peer.connections[id].forEach(conn=>{
-
+    Object.values(peer.connections).forEach(list=>{
+        list.forEach(conn=>{
             try{
-
-                conn.send({
-                    type:"presence",
-                    username:myName,
-                    peerId:peer.id
-                });
-
+                conn.send(data);
             }catch(e){}
-
         });
-
     });
-
 }
 
-/* -------------------------------- */
-/* UI */
-/* -------------------------------- */
+/* ----------------------------- */
+/* RENDER USERS */
+/* ----------------------------- */
 
 function renderPeers(){
 
-    const discover =
-        document.getElementById("discover");
-
+    const discover = document.getElementById("discover");
     discover.innerHTML = "";
 
-    Object.values(peers).forEach(user=>{
+    peers.forEach(user=>{
 
         if(user.peerId === peer.id) return;
 
-        const div =
-            document.createElement("div");
-
+        const div = document.createElement("div");
         div.className = "user";
 
         div.innerHTML = `
@@ -380,21 +285,15 @@ function renderPeers(){
             ${user.username}
         `;
 
-        div.onclick = ()=>{
-
-            callPeer(user.peerId);
-
-        };
+        div.onclick = ()=> callPeer(user.peerId);
 
         discover.appendChild(div);
-
     });
-
 }
 
-/* -------------------------------- */
-/* CALL */
-/* -------------------------------- */
+/* ----------------------------- */
+/* CALL PEER */
+/* ----------------------------- */
 
 function callPeer(id){
 
@@ -402,19 +301,13 @@ function callPeer(id){
 
     setStatus("CALLING...");
 
-    const call =
-        peer.call(id,stream);
-
+    const call = peer.call(id, stream);
     currentCall = call;
 
     call.on("stream",(remote)=>{
-
         document.getElementById("audio").srcObject = remote;
-
         setStatus("VOICE CONNECTED");
-
     });
-
 }
 
 </script>
