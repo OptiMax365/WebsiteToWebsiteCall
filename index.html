@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8" />
-<title>NEON Voice Mesh</title>
+<meta charset="UTF-8">
+<title>NEON VOICE MESH</title>
 
 <style>
 body {
@@ -18,23 +18,23 @@ body {
   padding:15px;
   border:1px solid #00ff99;
   border-radius:12px;
-  background:rgba(0,0,0,0.65);
+  background:rgba(0,0,0,0.7);
 }
 
 input, button {
   padding:10px;
   margin:5px;
-  border:none;
   background:#001a10;
   color:#00ff99;
+  border:none;
 }
 
-button:hover { transform:scale(1.05); }
+button:hover { transform:scale(1.05); cursor:pointer; }
 
 .user {
   border:1px solid #00ff99;
-  padding:5px;
   margin:4px;
+  padding:5px;
 }
 </style>
 </head>
@@ -47,26 +47,20 @@ button:hover { transform:scale(1.05); }
   Status: <span id="status">OFFLINE</span>
 </div>
 
-<!-- AUTH BOX (WILL HIDE AFTER LOGIN) -->
-<div class="box" id="authBox">
-  <input id="name" placeholder="Username (10+ chars)" />
-  <br/>
+<div class="box" id="auth">
+  <input id="name" placeholder="Username (10+ chars)">
   <button onclick="signup()">Sign Up</button>
-  <button onclick="signin()">Sign In</button>
+  <button onclick="signin()">Login</button>
 </div>
 
-<!-- ONLINE UI -->
-<div class="box" id="onlineUI" style="display:none;">
-  Your ID: <span id="myId"></span>
+<div class="box" id="panel" style="display:none;">
+  Logged in as: <b id="myId"></b>
+  <button onclick="logout()">Logout</button>
 </div>
 
 <div class="box">
   <b>Online Users</b>
-  <div id="network"></div>
-</div>
-
-<div class="box">
-  <button onclick="endCall()">End Call</button>
+  <div id="users"></div>
 </div>
 
 <audio id="audio" autoplay></audio>
@@ -75,23 +69,15 @@ button:hover { transform:scale(1.05); }
 
 <script>
 
-let peer;
 let ws;
+let peer;
 let stream;
 let username;
 let activeCall;
-let incoming = null;
 
-/* ==================== */
 /* CONNECT WS */
-/* ==================== */
-
-function connectWS(){
-
-  ws = new WebSocket(
-    (location.protocol==="https:"?"wss":"ws") +
-    "://" + location.host
-  );
+function connect(){
+  ws = new WebSocket((location.protocol==="https:"?"wss":"ws")+"://"+location.host);
 
   ws.onmessage = (msg)=>{
 
@@ -101,13 +87,8 @@ function connectWS(){
       renderUsers(data.users);
     }
 
-    if(data.type==="error") alert(data.message);
-    if(data.type==="ok") setStatus(data.message);
-
     if(data.type==="incoming-call"){
-      incoming = data;
-      showIncoming(data.from);
-      setStatus("📳 RINGING...");
+      alert("📳 Incoming call from " + data.from);
     }
 
     if(data.type==="call-start"){
@@ -118,15 +99,14 @@ function connectWS(){
       setStatus("📴 Call ended");
       if(activeCall) activeCall.close();
     }
+
+    if(data.type==="error") alert(data.message);
+    if(data.type==="ok") setStatus(data.message);
   };
 }
 
-/* ==================== */
 /* SIGNUP */
-/* ==================== */
-
 function signup(){
-
   username = getName();
 
   ws.send(JSON.stringify({
@@ -135,37 +115,31 @@ function signup(){
   }));
 }
 
-/* ==================== */
-/* SIGNIN */
-/* ==================== */
-
+/* LOGIN */
 async function signin(){
 
   username = getName();
 
   stream = await navigator.mediaDevices.getUserMedia({audio:true});
 
-  peer = new Peer(username);
+  peer = new Peer(username + "_" + Math.random().toString(36).substr(2,5));
 
-  peer.on("open",()=>{
+  peer.on("open",(id)=>{
 
     ws.send(JSON.stringify({
       type:"signin",
       username,
-      peerId: username
+      peerId:id
     }));
 
-    /* HIDE AUTH UI */
-    document.getElementById("authBox").style.display="none";
-    document.getElementById("onlineUI").style.display="block";
+    document.getElementById("auth").style.display="none";
+    document.getElementById("panel").style.display="block";
 
-    document.getElementById("myId").innerText = username;
-
-    setStatus("🟢 ONLINE");
+    document.getElementById("myId").innerText=username;
+    setStatus("ONLINE");
   });
 
   peer.on("call",(call)=>{
-
     call.answer(stream);
     activeCall = call;
 
@@ -175,70 +149,40 @@ async function signin(){
   });
 }
 
-/* ==================== */
 /* CALL USER */
-/* ==================== */
-
-function callUser(id){
-
+function callUser(peerId, user){
   ws.send(JSON.stringify({
     type:"call-request",
     from:username,
-    to:id
+    to:user
   }));
 
-  activeCall = peer.call(id, stream);
+  activeCall = peer.call(peerId, stream);
 }
 
-/* ==================== */
-/* ACCEPT */
-/* ==================== */
-
-function acceptCall(){
-
-  ws.send(JSON.stringify({
-    type:"accept-call",
-    from:username,
-    to:incoming.from
-  }));
-
-  removeIncoming();
+/* LOGOUT */
+function logout(){
+  ws.send(JSON.stringify({type:"logout"}));
+  location.reload();
 }
 
-/* ==================== */
-/* REJECT */
-/* ==================== */
-
-function rejectCall(){
-
-  ws.send(JSON.stringify({
-    type:"reject-call",
-    to:incoming.from
-  }));
-
-  removeIncoming();
-}
-
-/* ==================== */
-/* END CALL */
-/* ==================== */
-
-function endCall(){
-
-  if(activeCall) activeCall.close();
-
-  ws.send(JSON.stringify({
-    type:"end-call",
-    from:username,
-    to:incoming?.from
-  }));
-
-  setStatus("Idle");
-}
-
-/* ==================== */
 /* UI */
-/* ==================== */
+function renderUsers(users){
+  const box=document.getElementById("users");
+  box.innerHTML="";
+
+  users.forEach(u=>{
+    if(u.username===username) return;
+
+    const div=document.createElement("div");
+    div.className="user";
+    div.innerText=u.username;
+
+    div.onclick=()=>callUser(u.peerId,u.username);
+
+    box.appendChild(div);
+  });
+}
 
 function getName(){
   return document.getElementById("name").value.trim();
@@ -248,60 +192,7 @@ function setStatus(t){
   document.getElementById("status").innerText=t;
 }
 
-function renderUsers(users){
-
-  const box=document.getElementById("network");
-  box.innerHTML="";
-
-  users.forEach(u=>{
-
-    if(u.username===username) return;
-
-    const div=document.createElement("div");
-    div.className="user";
-    div.innerText=u.username;
-
-    div.onclick=()=>callUser(u.peerId);
-
-    box.appendChild(div);
-  });
-}
-
-/* ==================== */
-/* INCOMING UI */
-/* ==================== */
-
-function showIncoming(from){
-
-  const div=document.createElement("div");
-  div.id="incoming";
-  div.style=`
-    position:fixed;
-    top:20px;
-    left:50%;
-    transform:translateX(-50%);
-    background:black;
-    border:2px solid #00ff99;
-    padding:15px;
-  `;
-
-  div.innerHTML=`
-    📳 Incoming Call: <b>${from}</b><br><br>
-    <button onclick="acceptCall()">Accept</button>
-    <button onclick="rejectCall()">Reject</button>
-  `;
-
-  document.body.appendChild(div);
-}
-
-function removeIncoming(){
-  const el=document.getElementById("incoming");
-  if(el) el.remove();
-}
-
-/* ==================== */
-
-connectWS();
+connect();
 
 </script>
 
