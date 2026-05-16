@@ -18,34 +18,40 @@ CREATE TABLE IF NOT EXISTS users (
 )
 `);
 
-const online = new Map();
+const sockets = new Map(); // username → ws
+const online = new Map();  // username → peerId
 
 /* -------------------- */
 /* BROADCAST USERS */
 /* -------------------- */
 
 function broadcastUsers() {
-  const users = Array.from(online.values());
+  const list = Array.from(online.entries()).map(([username, peerId]) => ({
+    username,
+    peerId
+  }));
+
+  const msg = JSON.stringify({ type: "users", users: list });
 
   wss.clients.forEach(c => {
-    if (c.readyState === WebSocket.OPEN) {
-      c.send(JSON.stringify({ type: "users", users }));
-    }
+    if (c.readyState === WebSocket.OPEN) c.send(msg);
   });
 }
 
 /* -------------------- */
-/* CALL SIGNALING SYSTEM */
+/* SEND FUNCTION */
 /* -------------------- */
 
-const sockets = new Map(); // username → ws
-
-function sendTo(user, data) {
+function send(user, data) {
   const ws = sockets.get(user);
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
   }
 }
+
+/* -------------------- */
+/* WS CONNECTION */
+/* -------------------- */
 
 wss.on("connection", (ws) => {
 
@@ -54,8 +60,6 @@ wss.on("connection", (ws) => {
   ws.on("message", (msg) => {
 
     const data = JSON.parse(msg);
-
-    sockets.set(data.username || currentUser, ws);
 
     /* -------------------- */
     /* SIGNUP */
@@ -66,11 +70,10 @@ wss.on("connection", (ws) => {
       const username = data.username;
 
       if (!username || username.length < 10) {
-        ws.send(JSON.stringify({
+        return ws.send(JSON.stringify({
           type: "error",
-          message: "Username must be 10+ characters"
+          message: "Min 10 characters required"
         }));
-        return;
       }
 
       db.get(
@@ -84,11 +87,12 @@ wss.on("connection", (ws) => {
               message: "Username already exists"
             }));
           } else {
+
             db.run("INSERT INTO users(username) VALUES(?)", [username]);
 
             ws.send(JSON.stringify({
               type: "ok",
-              message: "Account created"
+              message: "Signup success"
             }));
           }
         }
@@ -96,7 +100,7 @@ wss.on("connection", (ws) => {
     }
 
     /* -------------------- */
-    /* SIGNIN (VERIFIED LOGIN) */
+    /* SIGNIN (STRICT MATCH ONLY) */
 /* -------------------- */
 
     if (data.type === "signin") {
@@ -109,26 +113,22 @@ wss.on("connection", (ws) => {
         (err, row) => {
 
           if (!row) {
-            ws.send(JSON.stringify({
+            return ws.send(JSON.stringify({
               type: "error",
               message: "Account not found"
             }));
-            return;
           }
 
           currentUser = username;
 
-          online.set(username, {
-            username,
-            peerId: data.peerId,
-            status: "online"
-          });
+          sockets.set(username, ws);
+          online.set(username, data.peerId);
 
           broadcastUsers();
 
           ws.send(JSON.stringify({
             type: "ok",
-            message: "Signed in"
+            message: "Online"
           }));
         }
       );
@@ -138,35 +138,50 @@ wss.on("connection", (ws) => {
     /* CALL REQUEST */
 /* -------------------- */
 
-    if (data.type === "call-user") {
+    if (data.type === "call-request") {
 
-      sendTo(data.to, {
+      send(data.to, {
         type: "incoming-call",
         from: data.from,
-        peerId: data.peerId
+        peerId: data.from
       });
     }
 
     /* -------------------- */
-    /* CALL ACCEPT */
+    /* ACCEPT CALL */
 /* -------------------- */
 
     if (data.type === "accept-call") {
 
-      sendTo(data.to, {
+      send(data.to, {
         type: "call-accepted",
-        peerId: data.peerId
+        peerId: data.from
+      });
+
+      send(data.from, {
+        type: "call-start"
       });
     }
 
     /* -------------------- */
-    /* CALL REJECT */
+    /* REJECT CALL */
 /* -------------------- */
 
     if (data.type === "reject-call") {
 
-      sendTo(data.to, {
+      send(data.to, {
         type: "call-rejected"
+      });
+    }
+
+    /* -------------------- */
+    /* END CALL */
+/* -------------------- */
+
+    if (data.type === "end-call") {
+
+      send(data.to, {
+        type: "call-ended"
       });
     }
 
@@ -175,6 +190,7 @@ wss.on("connection", (ws) => {
   ws.on("close", () => {
 
     if (currentUser) {
+      sockets.delete(currentUser);
       online.delete(currentUser);
       broadcastUsers();
     }
