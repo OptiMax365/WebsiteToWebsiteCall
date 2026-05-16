@@ -1,303 +1,375 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-
-<meta charset="UTF-8">
-
-<title>INTERNET PHONE APP</title>
+<meta charset="UTF-8" />
+<title>NEON Voice Mesh</title>
 
 <style>
-
-body{
-    margin:0;
-    background:#081108;
-    color:#00ff99;
-    font-family:Arial;
-    text-align:center;
+body {
+  margin:0;
+  font-family: Arial;
+  background:#040804;
+  color:#00ff99;
+  overflow-x:hidden;
 }
 
-/* TITLE */
-
-h1{
-    margin-top:30px;
-    text-shadow:0 0 20px #00ff99;
+/* animated glow background */
+body::before {
+  content:"";
+  position:fixed;
+  width:100%;
+  height:100%;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0,255,120,0.12), transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(0,255,120,0.08), transparent 40%);
+  animation: bg 6s infinite alternate;
+  z-index:-1;
 }
 
-/* BOX */
-
-.box{
-    width:340px;
-    margin:20px auto;
-    padding:15px;
-
-    border:1px solid #00ff99;
-    border-radius:12px;
-
-    background:rgba(0,0,0,0.7);
-
-    box-shadow:0 0 20px #00ff99;
+@keyframes bg {
+  from { transform:scale(1); opacity:0.7; }
+  to { transform:scale(1.1); opacity:1; }
 }
 
-/* INPUT */
-
-input{
-    width:90%;
-    padding:12px;
-
-    background:#001a10;
-    color:#00ff99;
-
-    border:none;
-    border-radius:10px;
-
-    outline:none;
+h2 {
+  text-align:center;
+  text-shadow:0 0 12px #00ff99;
 }
 
-/* BUTTON */
-
-button{
-    width:100%;
-    padding:12px;
-    margin-top:10px;
-
-    background:#003b22;
-    color:#00ff99;
-
-    border:none;
-    border-radius:10px;
-
-    cursor:pointer;
-
-    box-shadow:0 0 10px #00ff99;
+.box {
+  width:340px;
+  margin:15px auto;
+  padding:15px;
+  border:1px solid #00ff99;
+  border-radius:12px;
+  background:rgba(0,0,0,0.65);
+  box-shadow:0 0 18px #00ff99;
+  animation: float 5s infinite ease-in-out;
 }
 
-button:hover{
-    transform:scale(1.03);
+@keyframes float {
+  0%,100% { transform:translateY(0); }
+  50% { transform:translateY(-6px); }
 }
 
-/* USER CARD */
-
-.user{
-    padding:12px;
-    margin-top:10px;
-
-    border:1px solid #00ff99;
-    border-radius:10px;
-
-    animation:pulse 2s infinite;
+input, button {
+  padding:10px;
+  margin:5px;
+  border-radius:8px;
+  border:none;
+  background:#001a10;
+  color:#00ff99;
+  box-shadow:0 0 10px #00ff99;
 }
 
-/* ANIMATION */
+button:hover {
+  transform:scale(1.05);
+  cursor:pointer;
+  box-shadow:0 0 20px #00ff99;
+}
 
-@keyframes pulse{
+#status {
+  animation: blink 1.2s infinite;
+}
 
-    0%{
-        box-shadow:0 0 5px #00ff99;
-    }
+@keyframes blink {
+  50% { opacity:0.4; }
+}
 
-    50%{
-        box-shadow:0 0 20px #00ff99;
-    }
+#myId {
+  font-size:18px;
+  text-shadow:0 0 10px #00ff99;
+}
 
-    100%{
-        box-shadow:0 0 5px #00ff99;
-    }
+.user {
+  border:1px solid #00ff99;
+  padding:8px;
+  margin:5px;
+  border-radius:6px;
+  cursor:pointer;
+  animation: glow 2s infinite;
+}
 
+.user:hover{
+  background:#003322;
+}
+
+@keyframes glow {
+  50% { box-shadow:0 0 10px #00ff99; }
 }
 
 .onlineDot{
-    width:10px;
-    height:10px;
-
-    background:#00ff99;
-
-    border-radius:50%;
-
-    display:inline-block;
-
-    margin-right:8px;
+  width:10px;
+  height:10px;
+  background:#00ff99;
+  border-radius:50%;
+  display:inline-block;
+  margin-right:8px;
 }
-
-#status{
-    margin-top:10px;
-    color:#66ffcc;
-}
-
 </style>
-
 </head>
 
 <body>
 
-<h1>🌍 INTERNET PHONE APP</h1>
+<h2>⚡ NEON VOICE MESH</h2>
 
 <div class="box">
-
-    <input
-        id="username"
-        placeholder="Enter Username"
-    >
-
-    <button onclick="joinNetwork()">
-
-        JOIN NETWORK
-
-    </button>
-
-    <div id="status">
-        OFFLINE
-    </div>
-
+  Status: <span id="status">Idle</span>
 </div>
 
 <div class="box">
-
-    <h3>ONLINE USERS</h3>
-
-    <div id="users"></div>
-
+  <input id="name" placeholder="Enter username" />
+  <br/>
+  <button onclick="start()">Start Device</button>
 </div>
+
+<div class="box">
+  Your Identity:
+  <div id="myId">---</div>
+</div>
+
+<div class="box">
+  <b>🌍 ONLINE USERS</b>
+  <div id="network"></div>
+</div>
+
+<audio id="audio" autoplay></audio>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
 <script>
 
-/* ------------------------ */
-/* GLOBALS */
-/* ------------------------ */
-
+let peer;
+let stream;
+let call;
+let deviceId;
+let username;
 let ws;
 
-const myId =
-    Math.random()
-    .toString(36)
-    .substring(2,10);
+const onlineUsers = [];
 
-/* ------------------------ */
+/* ---------------------- */
 /* STATUS */
-/* ------------------------ */
+/* ---------------------- */
 
-function setStatus(text){
+function setStatus(t){
+  document.getElementById("status").innerText = t;
+}
 
-    document.getElementById("status")
-    .innerText = text;
+/* ---------------------- */
+/* RENDER USERS */
+/* ---------------------- */
+
+function render(users){
+
+  const box =
+    document.getElementById("network");
+
+  box.innerHTML = "";
+
+  users.forEach(user=>{
+
+    if(user.peerId === deviceId) return;
+
+    const div =
+      document.createElement("div");
+
+    div.className = "user";
+
+    div.innerHTML = `
+      <span class="onlineDot"></span>
+      ${user.username}
+    `;
+
+    div.onclick = ()=>{
+
+      callPeer(user.peerId);
+
+    };
+
+    box.appendChild(div);
+
+  });
 
 }
 
-/* ------------------------ */
-/* JOIN NETWORK */
-/* ------------------------ */
+/* ---------------------- */
+/* RANDOM ID */
+/* ---------------------- */
 
-function joinNetwork(){
+function generateId(){
 
-    const username =
-        document
-        .getElementById("username")
-        .value
-        .trim();
+  return Math.random()
+  .toString(36)
+  .substr(2,9);
 
-    if(!username){
+}
 
-        alert("Enter username");
+/* ---------------------- */
+/* START */
+/* ---------------------- */
 
-        return;
+async function start(){
+
+  username = (
+    document.getElementById("name").value
+    || "user"
+  )
+  .replace(/[^a-zA-Z0-9]/g,"")
+  .toLowerCase();
+
+  if(!username){
+
+    alert("Enter username");
+
+    return;
+
+  }
+
+  stream =
+    await navigator
+    .mediaDevices
+    .getUserMedia({
+      audio:true
+    });
+
+  deviceId =
+    username + "_" + generateId();
+
+  peer =
+    new Peer(deviceId);
+
+  document
+    .getElementById("myId")
+    .innerText = deviceId;
+
+  peer.on("open", ()=>{
+
+    setStatus("Online");
+
+    connectTracker();
+
+  });
+
+  /* incoming call */
+
+  peer.on("call", c=>{
+
+    setStatus("Incoming call");
+
+    c.answer(stream);
+
+    call = c;
+
+    c.on("stream", rstream=>{
+
+      document
+      .getElementById("audio")
+      .srcObject = rstream;
+
+      setStatus("In call");
+
+    });
+
+  });
+
+}
+
+/* ---------------------- */
+/* TRACKER */
+/* ---------------------- */
+
+function connectTracker(){
+
+  const protocol =
+    location.protocol === "https:"
+    ? "wss"
+    : "ws";
+
+  ws =
+    new WebSocket(
+      protocol + "://" + location.host
+    );
+
+  ws.onopen = ()=>{
+
+    ws.send(JSON.stringify({
+
+      type:"join",
+
+      peerId:deviceId,
+
+      username:username
+
+    }));
+
+  };
+
+  ws.onmessage = (event)=>{
+
+    const data =
+      JSON.parse(event.data);
+
+    if(data.type === "users"){
+
+      render(data.users);
 
     }
 
-    /*
-    auto ws/wss
-    */
-
-    const protocol =
-        location.protocol === "https:"
-        ? "wss"
-        : "ws";
-
-    /*
-    connect websocket
-    */
-
-    ws = new WebSocket(
-        protocol + "://" + location.host
-    );
-
-    /* CONNECTED */
-
-    ws.onopen = () => {
-
-        console.log("Connected");
-
-        setStatus("ONLINE");
-
-        ws.send(JSON.stringify({
-
-            type:"join",
-
-            id:myId,
-
-            name:username
-
-        }));
-
-    };
-
-    /* RECEIVE USERS */
-
-    ws.onmessage = (event) => {
-
-        const data =
-            JSON.parse(event.data);
-
-        if(data.type === "users"){
-
-            renderUsers(data.users);
-
-        }
-
-    };
-
-    /* DISCONNECTED */
-
-    ws.onclose = () => {
-
-        console.log("Disconnected");
-
-        setStatus("OFFLINE");
-
-    };
+  };
 
 }
 
-/* ------------------------ */
-/* RENDER USERS */
-/* ------------------------ */
+/* ---------------------- */
+/* CALL */
+/* ---------------------- */
 
-function renderUsers(users){
+function callPeer(id){
 
-    const usersBox =
-        document.getElementById("users");
+  if(!peer || !stream) return;
 
-    usersBox.innerHTML = "";
+  setStatus("Calling...");
 
-    users.forEach(user => {
+  const c =
+    peer.call(id, stream);
 
-        const div =
-            document.createElement("div");
+  call = c;
 
-        div.className = "user";
+  c.on("stream", rstream=>{
 
-        div.innerHTML = `
-            <span class="onlineDot"></span>
-            ${user.name}
-        `;
+    document
+    .getElementById("audio")
+    .srcObject = rstream;
 
-        usersBox.appendChild(div);
+    setStatus("In call");
 
-    });
+  });
+
+}
+
+/* ---------------------- */
+/* END CALL */
+/* ---------------------- */
+
+function endCall(){
+
+  if(call){
+
+    call.close();
+
+  }
+
+  call = null;
+
+  document
+    .getElementById("audio")
+    .srcObject = null;
+
+  setStatus("Idle");
 
 }
 
 </script>
 
 </body>
-
 </html>
