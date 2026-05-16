@@ -4,41 +4,44 @@ import cors from "cors";
 import bcrypt from "bcrypt";
 import pkg from "pg";
 
-// Attempt to load dotenv only in local development
-if (process.env.NODE_ENV !== "production") {
-  try {
-    const dotenv = await import("dotenv");
-    dotenv.config();
-    console.log("✅ Loaded .env file");
-  } catch (err) {
-    console.warn("⚠️ dotenv not installed, skipping...");
-  }
-}
-
 const { Pool } = pkg;
 const app = express();
 
-// PORT from environment or fallback to 3000
+// ======================
+// PORT
+// ======================
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-
+// ======================
 // DATABASE CONNECTION
-if (!process.env.DATABASE_URL) {
-  console.error("❌ DATABASE_URL is not set! Please set it in environment variables.");
+// ======================
+// On Render, DATABASE_URL is already set in environment variables
+// Locally, you can use a .env file with DATABASE_URL
+
+let connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error("❌ DATABASE_URL is not set! Exiting.");
   process.exit(1);
 }
 
+// Create PostgreSQL pool with SSL for Render
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   ssl: {
     rejectUnauthorized: true // Required for Render PostgreSQL
   }
 });
 
-// CREATE USERS TABLE IF IT DOESN'T EXIST
+// ======================
+// MIDDLEWARE
+// ======================
+app.use(cors());
+app.use(express.json());
+
+// ======================
+// DATABASE INIT
+// ======================
 async function startDatabase() {
   try {
     await pool.query(`
@@ -55,12 +58,14 @@ async function startDatabase() {
   }
 }
 
-// Start DB on server start
+// Start DB
 startDatabase();
 
-// ================== ROUTES ==================
+// ======================
+// ROUTES
+// ======================
 
-// Root route
+// Root
 app.get("/", (req, res) => {
   res.send("VOICE MESH SERVER RUNNING");
 });
@@ -127,7 +132,9 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// ================== START SERVER ==================
+// ======================
+// START SERVER
+// ======================
 app.listen(PORT, () => {
   console.log(`✅ SERVER RUNNING ON PORT ${PORT}`);
 });
