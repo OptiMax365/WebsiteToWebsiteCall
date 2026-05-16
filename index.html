@@ -114,6 +114,7 @@ Status:
 
 <button onclick="signup()">Register</button>
 <button onclick="login()">Login</button>
+<button onclick="logout()">Logout</button>
 
 </div>
 
@@ -177,6 +178,9 @@ let currentCall = null;
 let loggedIn = false;
 let myUsername = "";
 
+
+
+
   const savedUser =
     localStorage.getItem("loggedUser");
 
@@ -184,11 +188,23 @@ let myUsername = "";
 
     myUsername = savedUser;
 
+    loggedIn = true;
+
     document.getElementById(
       "myId"
     ).innerText = myUsername;
 
+    window.addEventListener("load",async()=>{
+
+      debug("RESTORING SESSION => " + myUsername);
+
+      await startPeer();
+
+    });
+
   }
+
+
 
 
 let incomingCall = null;
@@ -405,7 +421,53 @@ async function login(){
 }
 
 
+
+
+function logout(){
+
+  debug("Logging out");
+
+  localStorage.removeItem("loggedUser");
+
+  loggedIn = false;
+
+  myUsername = "";
+
+  if(peer){
+
+    try{
+      peer.destroy();
+    }catch(e){}
+
+  }
+
+  peer = null;
+
+  document.getElementById("myId")
+  .innerText = "---";
+
+  setStatus("Logged out");
+
+}
+
+
+
+
 async function startPeer(){
+
+
+
+  if(peer){
+
+    try{
+      peer.destroy();
+    }catch(e){}
+
+    peer = null;
+
+  }
+
+
 
   try{
 
@@ -420,17 +482,17 @@ async function startPeer(){
 
 
     peer = new Peer(myUsername,{
-      host:window.location.hostname,
-      port:window.location.port || 10000,
-      path:"/peerjs",
-      secure: location.protocol === "https:"
+      host:"internetphoneapp.onrender.com",
+      secure:true,
+      port:443,
+      path:"/peerjs"
     });
-
 
 
     debug("Starting PeerJS...");
 
     peer.on("open", id => {
+
 
       debug("PEER OPENED => " + id);
 
@@ -439,6 +501,21 @@ async function startPeer(){
       setTimeout(()=>{
         setStatus("📞 Ready state");
       },1000);
+
+    });
+
+    
+    peer.on("disconnected",()=>{
+    debug("PEER DISCONNECTED");
+    setStatus("⚠ Reconnecting...");
+      try{
+        peer.reconnect();
+
+      }catch(err){
+
+        debug("Reconnect failed");
+
+      }
 
     });
 
@@ -466,7 +543,31 @@ async function startPeer(){
 
       setStatus("❌ Peer Error");
 
+      if(
+        err.type === "network" ||
+        err.type === "disconnected"
+      ){
+
+        debug("Attempting reconnect...");
+
+        try{
+
+          peer.reconnect();
+
+        }catch(e){
+
+          debug("Reconnect failed");
+
+        }
+
+      }
+
     });
+
+
+
+
+
 
   }catch(err){
 
