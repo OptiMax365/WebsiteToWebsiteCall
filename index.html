@@ -167,10 +167,7 @@ Your Identity:
 <script>
 
 const SERVER =
-  location.hostname === "127.0.0.1" ||
-  location.hostname === "localhost"
-    ? "http://localhost:10000"
-    : "https://internetphoneapp.onrender.com";
+  "https://websitespeaks.onrender.com";
 
 let peer = null;
 let localStream = null;
@@ -482,7 +479,7 @@ async function startPeer(){
 
 
     peer = new Peer(myUsername,{
-      host:"internetphoneapp.onrender.com",
+      host:"websitespeaks.onrender.com",
       secure:true,
       port:443,
       path:"/peerjs"
