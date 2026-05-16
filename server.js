@@ -1,141 +1,149 @@
 const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
+const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-/* -------------------------- */
-/* ONLINE USERS (BY USERNAME) */
-/* -------------------------- */
-
-const users = new Map();
-
-/*
-users = {
-  username: {
-    username,
-    peerId,
-    lastSeen
-  }
-}
-*/
-
-/* -------------------------- */
-/* FRONTEND */
-/* -------------------------- */
+/* -------------------- */
+/* STATIC FRONTEND */
+/* -------------------- */
 
 app.use(express.static(path.join(__dirname, "public")));
 
-/* -------------------------- */
-/* BROADCAST */
-/* -------------------------- */
+/* -------------------- */
+/* SQLITE DATABASE */
+/* -------------------- */
 
-function broadcastUsers(){
+const db = new sqlite3.Database("./users.db");
 
-  const list = Array.from(users.values());
+db.run(`
+CREATE TABLE IF NOT EXISTS users (
+    username TEXT PRIMARY KEY
+)
+`);
 
-  const payload = JSON.stringify({
-    type: "users",
-    users: list
-  });
+/* -------------------- */
+/* ONLINE USERS (LIVE ONLY) */
+/* -------------------- */
 
-  wss.clients.forEach(client => {
-    if(client.readyState === WebSocket.OPEN){
-      client.send(payload);
-    }
-  });
+const online = new Map();
 
+/* -------------------- */
+/* BROADCAST USERS */
+/* -------------------- */
+
+function broadcastUsers() {
+    const users = Array.from(online.values());
+
+    const msg = JSON.stringify({
+        type: "users",
+        users
+    });
+
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(msg);
+        }
+    });
 }
 
-/* -------------------------- */
-/* SOCKETS */
-/* -------------------------- */
+/* -------------------- */
+/* SIGNUP + LOGIN HANDLER */
+/* -------------------- */
 
 wss.on("connection", (ws) => {
 
-  let currentUser = null;
+    let currentUser = null;
 
-  ws.on("message", (msg) => {
+    ws.on("message", (msg) => {
 
-    try{
+        const data = JSON.parse(msg);
 
-      const data = JSON.parse(msg);
+        /* -------------------- */
+        /* SIGNUP */
+/* -------------------- */
 
-      /* LOGIN / JOIN */
+        if (data.type === "signup") {
 
-      if(data.type === "login"){
+            const username = data.username;
 
-        currentUser = data.username;
+            if (!username || username.length < 10) {
+                ws.send(JSON.stringify({
+                    type: "error",
+                    message: "Username must be at least 10 characters"
+                }));
+                return;
+            }
 
-        users.set(currentUser, {
-          username: data.username,
-          peerId: data.peerId,
-          lastSeen: Date.now()
-        });
+            db.get(
+                "SELECT username FROM users WHERE username=?",
+                [username],
+                (err, row) => {
 
-        broadcastUsers();
-      }
+                    if (row) {
+                        ws.send(JSON.stringify({
+                            type: "error",
+                            message: "Username already exists"
+                        }));
+                    } else {
 
-      /* HEARTBEAT (keep alive) */
-      if(data.type === "ping" && currentUser){
+                        db.run(
+                            "INSERT INTO users(username) VALUES(?)",
+                            [username]
+                        );
 
-        const u = users.get(currentUser);
-
-        if(u){
-          u.lastSeen = Date.now();
-          users.set(currentUser, u);
+                        ws.send(JSON.stringify({
+                            type: "ok",
+                            message: "Username registered successfully"
+                        }));
+                    }
+                }
+            );
         }
 
-      }
+        /* -------------------- */
+        /* LOGIN */
+/* -------------------- */
 
-    }catch(e){
-      console.log(e);
-    }
+        if (data.type === "login") {
 
-  });
+            currentUser = data.username;
 
-  ws.on("close", ()=>{
+            online.set(currentUser, {
+                username: data.username,
+                peerId: data.peerId
+            });
 
-    if(currentUser){
-      users.delete(currentUser);
-      broadcastUsers();
-    }
+            broadcastUsers();
+        }
 
-  });
+    });
+
+    /* -------------------- */
+    /* DISCONNECT */
+/* -------------------- */
+
+    ws.on("close", () => {
+
+        if (currentUser) {
+            online.delete(currentUser);
+            broadcastUsers();
+        }
+
+    });
 
 });
 
-/* -------------------------- */
-/* CLEAN DEAD USERS */
-/* -------------------------- */
-
-setInterval(()=>{
-
-  const now = Date.now();
-
-  for(const [name, user] of users.entries()){
-
-    if(now - user.lastSeen > 10000){
-      users.delete(name);
-    }
-
-  }
-
-  broadcastUsers();
-
-}, 5000);
-
-/* -------------------------- */
-/* START */
-/* -------------------------- */
+/* -------------------- */
+/* START SERVER */
+/* -------------------- */
 
 const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, ()=>{
-
-  console.log("Server running on " + PORT);
-
+server.listen(PORT, () => {
+    console.log("Server running on port " + PORT);
 });
